@@ -197,7 +197,7 @@ export function AccountSection({ mode = "all" }: { mode?: "all" | "profile" | "p
   );
 }
 
-function PasswordCard({ email }: { email: string }) {
+export function PasswordCard({ email }: { email: string }) {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [state, setState] = useState<{ busy: boolean; message: string | null; error: boolean }>({ busy: false, message: null, error: false });

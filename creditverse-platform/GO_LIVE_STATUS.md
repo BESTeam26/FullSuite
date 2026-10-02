@@ -105,6 +105,39 @@ The three End of Day computations flagged by the privileged-helper check are
 deliberate (they compute the caller's own day or team report) and are now
 named exceptions in that check; every other pair still fails it.
 
+## 2026-10-02 — Partner Portal: Account Settings (step 9, the last)
+
+Done to PARTNER_PORTAL_DOCTRINE.md's list, in its order:
+- **Business information** and **Your details** (renamed from "Primary
+  Contact" — the save always changed the signed-in person's own contact
+  row, not the company's primary contact).
+- **Contacts and portal users:** everyone on the account with title, email,
+  phone, Primary, "(you)", and their portal access. Read-only: "Ask BES to
+  add or remove someone" opens the Support conversation (Messages now opens
+  a topic from a link and offers to start it). Self-service invites are
+  D-025, a decision for Dee.
+- **Notifications:** what BES actually sends and where — billing email to
+  the billing contact (same rule as the billing mail), agreements to the
+  signer, messages and actions as portal badges. No switches, because no
+  partner alert exists for one to control; email alerts are D-024.
+- **Password and security:** the same password control staff use (change,
+  or email a reset link) plus "Sign out other devices".
+- **Connected systems** (the logins BES works from) moved to the end — the
+  longest section.
+
+**Fixed — dead control.** The portal header's search box had no handler:
+typing did nothing. It now searches the partner's clients (the Clients
+page starts filtered and follows a new search) and is not shown to a
+suspended partner, who has no Clients page.
+
+Proven as Kaori: she reads her company's one contact, no other partner's,
+and her attempt to change portal access changes nothing. Matrix phase 77
+now 112/113 (only the old mismatch).
+
+Not verified live: the page has not been walked by a partner in a browser
+(no partner login can be driven here). The Partner Portal's nine pages are
+now all rebuilt to the doctrine.
+
 ## 2026-10-02 — Partner Portal: Updates (step 8)
 
 Done to PARTNER_PORTAL_DOCTRINE.md's Updates list ("the clean external
@@ -350,7 +383,7 @@ scope; their own pay is the released-payslip self branch.
 | Executive | Payroll: agent side organization-wide | Owners, Aaron (chief operations seat), Bryan (payroll key) | Same | seat or explicit key, never `agency_admin` | DB proof (Tech account, admin alone: 0), phase 37, `management-placement-probe` | none |
 | Executive | Payroll: BES side (cost, margin, settlement) | Owners + Bryan only | Owners + Bryan | `compensation.bes_cost.view` | DB proof (Dee, Bryan see 4 internal rows; Rowell, Tech, leads see 0), `compensation-probe` 37/37 | none |
 | Executive (Bryan) | Payroll + compensation, no finance | Yes | Yes | Company | `release-personas-probe` 46/46 | none |
-| Partner Portal User | Overview, Clients, Actions Needed, Messages | Yes | Respond, sign, message | Own partner only; no internal fields | phase 77 (12 checks), DB proof as Kaori (earlier today) | Projects & Services, Billing, Files and Updates rebuilt 2026-10-02 (DB proof + phase 77, 110/111); Account Settings next |
+| Partner Portal User | Overview, Clients, Actions Needed, Messages | Yes | Respond, sign, message | Own partner only; no internal fields | phase 77 (12 checks), DB proof as Kaori (earlier today) | All nine pages rebuilt to the doctrine 2026-10-02 (DB proof + phase 77, 112/113); HUMAN TEST REQUIRED as a partner |
 | Partner Portal User | Any BES internal surface | No | No | — | phase 77, `partner_services` staff-only policy | none |
 
 ## BLOCKING

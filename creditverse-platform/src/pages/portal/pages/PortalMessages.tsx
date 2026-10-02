@@ -25,13 +25,15 @@
  * the pane, and nothing else is — a partner with six conversations loads one.
  */
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Hash, Loader2, MessagesSquare, Plus, UserRound } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ConversationPane } from "@/components/communication/ConversationPane";
 import { useChannels } from "@/lib/data/use-channels";
 import {
   useMyPartnerServices, useMyPartnerTeam, usePartnerConversationActions,
 } from "@/lib/data/use-portal-conversations";
-import { topicLink, topicsToShow, type PortalTopicKey } from "@/lib/portal/portal-conversations";
+import { PORTAL_TOPICS, topicLink, topicsToShow, type PortalTopicKey } from "@/lib/portal/portal-conversations";
 import { serviceIsLive, type ServiceStatus } from "@/lib/partners/partner-account";
 import { cn } from "@/lib/utils";
 import { PageLoadError } from "@/components/common/QueryState";
@@ -119,7 +121,12 @@ export function PortalMessages({ partnerGroupId }: { partnerGroupId: string }) {
   const services = useMyPartnerServices();
   const team = useMyPartnerTeam();
   const actions = usePartnerConversationActions(partnerGroupId);
-  const [selected, setSelected] = useState<string | null>(null);
+  /* ?topic=support (Account Settings' "ask BES" links) opens that topic's
+     conversation, or offers to start it. Only a known topic key is honoured. */
+  const [params] = useSearchParams();
+  const asked = params.get("topic");
+  const [selected, setSelected] = useState<string | null>(
+    asked && PORTAL_TOPICS.some((t) => t.key === asked) ? `topic:${asked}` : null);
   const busy = actions.openTopic.isPending || actions.openDirect.isPending;
 
   const mine = useMemo(
@@ -232,6 +239,15 @@ export function PortalMessages({ partnerGroupId }: { partnerGroupId: string }) {
             headerLinks={(() => { const l = topicLink(current.topic); return l ? [l] : []; })()}
             emptyLabel="No messages yet. Write to your BES team here."
           />
+        ) : current?.start ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
+            <MessagesSquare className="mb-2 h-6 w-6 text-muted-foreground" />
+            <p className="text-sm font-semibold text-foreground">{current.label}</p>
+            {current.hint && <p className="mt-1 max-w-sm text-xs text-muted-foreground">{current.hint}</p>}
+            <Button type="button" size="sm" className="mt-3" disabled={busy} onClick={() => current.start?.()}>
+              {busy && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />} Start the {current.label} conversation
+            </Button>
+          </div>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
             <MessagesSquare className="mb-2 h-6 w-6 text-muted-foreground" />

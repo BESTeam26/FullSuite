@@ -41,11 +41,11 @@ import { PortalUpdates } from "@/pages/portal/pages/PortalUpdates";
 import { PortalActionNeeded } from "@/components/portal/PortalActionNeeded";
 import { PortalMessages } from "@/pages/portal/pages/PortalMessages";
 import { PortalBilling } from "@/components/portal/PortalBilling";
-import { PartnerInformation } from "@/components/portal/PartnerInformation";
+import { PortalAccountSettings } from "@/pages/portal/pages/PortalAccountSettings";
 import {
   PortalFiles,
 } from "@/components/portal/PortalSections";
-import { useMyPartner, usePartnerContacts } from "@/lib/data/use-agency-partners";
+import { useMyPartner } from "@/lib/data/use-agency-partners";
 import { PageLoadError } from "@/components/common/QueryState";
 
 /** Copy for each page's heading, in one place so the shell stays generic. */
@@ -60,7 +60,7 @@ const HEADINGS: Record<PortalPageId, { title: string; description?: string }> = 
   files:      { title: "Files", description: "Documents BES has shared with you." },
   referrals:  { title: "Referrals" },
   updates:    { title: "Updates", description: "News from BES and what has moved on your account." },
-  settings:   { title: "Account Settings", description: "Company information, contacts and connected systems." },
+  settings:   { title: "Account Settings", description: "Your business, your people, notifications, sign-in and connected systems." },
 };
 
 const NoAccess = ({ onSignOut }: { onSignOut: () => void }) => (
@@ -144,7 +144,7 @@ export const PartnerPortal = () => {
       <Route path="agreements" element={page("agreements", <PortalAgreements />)} />
       <Route path="files" element={page("files", <PortalFilesPage />)} />
       <Route path="updates" element={page("updates", <PortalUpdates />)} />
-      <Route path="settings" element={page("settings", <PortalSettings />)} />
+      <Route path="settings" element={page("settings", <PortalAccountSettings />)} />
       {/* Referrals has no model yet, so the route redirects rather than
           rendering a page that would have nothing true to say. */}
       <Route path="referrals" element={<Navigate to="/partner" replace />} />
@@ -167,21 +167,4 @@ function PortalFilesPage() {
   const partner = useMyPartner();
   if (!partner.data) return null;
   return <PortalFiles partnerGroupId={partner.data.id} />;
-}
-
-function PortalSettings() {
-  const { user } = useAuth();
-  const partner = useMyPartner();
-  const contacts = usePartnerContacts(partner.data?.id ?? null);
-  const me = (contacts.data ?? []).find((c) => c.userId === user?.id);
-  if (!partner.data) return null;
-  return (
-    <PartnerInformation
-      partner={partner.data}
-      contactName={me?.fullName ?? null}
-      contactTitle={me?.title ?? null}
-      contactPhone={me?.phone ?? null}
-      contactEmail={me?.email ?? null}
-    />
-  );
 }

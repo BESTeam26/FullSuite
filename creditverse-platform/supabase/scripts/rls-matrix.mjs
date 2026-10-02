@@ -8364,6 +8364,14 @@ if (runs(77)) {
             `insert into public.activity_events (agency_id, entity_type, entity_id, action, field, new_value, visibility, created_at) values
                (${AG77}, 'fulfillment_client', '44444444-0000-4000-8000-0000000000c7', 'Status changed', 'status', 'Round 2 Sent', 'shared_with_partner', '2026-09-01 10:00:00+00'),
                (${AG77}, 'fulfillment_client', '44444444-0000-4000-8000-0000000000c7', 'Round changed', 'round', 'Round 2', 'shared_with_partner', '2026-09-01 10:00:00+00');`), 1],
+        /* Account Settings (2026-10-02): contacts and portal users are read
+           from partner_contacts' own rule; granting access stays with BES. */
+        ["a partner contact sees their own company's contacts and no other partner's",
+          () => as77(PC, `select (count(*) filter (where group_id = '${G}') > 0 and count(*) filter (where group_id <> '${G}') = 0)::text as rows from public.partner_contacts`,
+            `insert into public.outsourcing_groups (id, agency_id, name, contact_email) values ('44444444-0000-4000-8000-0000000000e8'::uuid, ${AG77}, 'Other Partner', 'op@example.test');
+             insert into public.partner_contacts (agency_id, group_id, full_name, email, status) values (${AG77}, '44444444-0000-4000-8000-0000000000e8'::uuid, 'Other Contact', 'other.contact@example.test', 'active');`), "true"],
+        ["…and cannot change anyone's portal access, their own included",
+          () => as77(PC, `with u as (update public.partner_contacts set status = 'suspended' where group_id = '${G}' returning 1) select count(*)::int as rows from u`), 0],
         ["a BES owner, who is no partner's contact, gets an empty Updates feed",
           () => as77(OWNER77, `select count(*)::int as rows from public.my_partner_feed(100)`, build), 0],
       ];

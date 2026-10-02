@@ -60,8 +60,11 @@ Last reconciled: 2026-10-01, after the full review (stale entries corrected agai
   MONITORING ISSUE raise it automatically, or should an agent ask
   explicitly (a staff control)? Messages done 2026-10-02 (see
   GO_LIVE_STATUS.md); Projects & Services done the same day. Portal work
-  order next (Billing, the client-document storage rule, Files and Updates
-  done 2026-10-02): Account Settings.
+  order: all nine pages done 2026-10-02 (Account Settings last; header
+  search fixed). Open: D-024 partner email alerts, D-025 partner
+  self-service users (Dee to decide). Cleanup: `PortalClients` in
+  PortalSections.tsx is no longer routed (PortalClientsPage is) and is
+  kept only by its tests — remove with them.
 
 - **Reminders and live delivery shipped 2026-10-01 (Dee: EOD / clock-in /
   clock-out reminders; Slack-style notifications).** `reminders_sweep()`

@@ -1227,3 +1227,59 @@ the import summary and are readable in the table by anyone authorized for
 both partners. A "possible same person" review list is worth building when
 there are enough links to review — after the second and third imports, not
 before.
+
+## D-024 — Partner email alerts for new messages and actions needed (2026-10-02)
+
+**Recorded by Claude while building Partner Portal Account Settings.** The
+doctrine lists "Notification preferences". Today a partner is told about
+exactly three things: invoices, reminders and receipts by email to the
+billing contact (`billing_email_outbox`), agreements by email to the signer,
+and — inside the portal only — the message and bell badges. The message
+trigger writes `notifications` rows for partner contacts (DMs, mentions),
+but the portal has no notification list and no push, so a partner who is
+not signed in learns of a BES reply only by opening the portal.
+
+**Built instead (honest, no new delivery):** Account Settings › Notifications
+says what is sent and where, names the billing address from the same rule
+the billing mail uses, and states that email alerts for messages and
+actions are not available yet. No switch, because there is nothing for one
+to control (rule 12).
+
+**Proposed architecture.** One outbox, not a second notification engine:
+a `partner_email_outbox` written from the existing `notifications` insert for
+recipients who are partner contacts (DM, mention, action requested), sent by
+the same Resend path as billing mail, with a digest window (e.g. at most one
+email per conversation per hour) so a busy thread is not ten emails. The
+preference then becomes real: per contact, `messages: immediate | daily |
+off`, `actions: immediate | off`, stored on `partner_contacts` or a small
+prefs table, read by the outbox writer, not by the browser.
+
+**Why deferred.** Go-Live Stabilization: fix what exists, add nothing. It is
+also a recurring cost in the MESSAGING bucket (§22). *Cost scales with:
+partner messages and action requests, per contact, bounded by the digest.*
+
+**Dependencies / risk.** Resend sending is live. The risk is noise — without
+the digest, alert fatigue makes partners mute everything.
+
+## D-025 — Partners adding and removing their own portal users (2026-10-02)
+
+**Recorded by Claude while building Account Settings.** The doctrine lists
+"Portal users". Account Settings now shows every contact and their portal
+access (active / invited / not invited / suspended) from `partner_contacts`
+under its own row rule, and offers "Ask BES to add or remove someone", which
+opens the Support conversation. Partners cannot change contacts: the update
+and insert policies are BES-only, proven in phase 77.
+
+**Proposed architecture, if Dee wants self-service.** A definer
+`my_partner_invite_contact(email, name, title)` that only a partner's
+PRIMARY contact (or a new `can_manage_users` flag) may call; it creates the
+contact as `invited` through the existing `invite_partner_contact` pipe,
+audits it on the partner record, and notifies the account manager. Removal
+is a status change to `suspended`, never a delete, and never of the last
+active contact. BES can still override.
+
+**Why deferred, and why it needs Dee.** Portal access is access to client
+data (credit files, documents). Today BES decides every grant. Letting a
+partner grant it is an authorization change (rule 20: plan first). DEE TO
+DECIDE: should a partner's primary contact be able to invite colleagues
+without BES approving each one?

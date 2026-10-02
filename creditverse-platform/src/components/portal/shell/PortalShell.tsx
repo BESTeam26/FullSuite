@@ -12,7 +12,7 @@
  * suspended partner who types a URL is refused by the read, not by the menu.
  */
 import { useMemo, useState, type ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell, ClipboardList, FileSignature, FolderOpen, LayoutDashboard, Loader2, Megaphone,
   Menu, MessagesSquare, Search, Settings, Share2, Users, Wallet, Workflow, X,
@@ -62,6 +62,8 @@ export function PortalShell({
   });
   const [menuOpen, setMenuOpen] = useState(false);
   const nav = useMemo(() => navFor(summary), [summary]);
+  const navigate = useNavigate();
+  const canSearchClients = nav.some((item) => item.id === "clients");
   const current = activePage(pathname);
 
   const links = (onNavigate?: () => void) => (
@@ -142,15 +144,29 @@ export function PortalShell({
             {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          <div className="relative hidden min-w-0 max-w-sm flex-1 sm:block">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="search"
-              placeholder="Search clients, invoices, files"
-              aria-label="Search"
-              className="h-8 w-full rounded-lg border border-border bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </div>
+          {/* Searches the partner's clients — the one list it can honestly
+              search. It was a box with no handler; a suspended partner, who
+              has no Clients page, is not offered it. */}
+          {canSearchClients && (
+            <form
+              role="search"
+              className="relative hidden min-w-0 max-w-sm flex-1 sm:block"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const term = String(new FormData(e.currentTarget).get("q") ?? "").trim();
+                navigate(term ? `/partner/clients?q=${encodeURIComponent(term)}` : "/partner/clients");
+              }}
+            >
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="search"
+                name="q"
+                placeholder="Search clients"
+                aria-label="Search clients"
+                className="h-8 w-full rounded-lg border border-border bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </form>
+          )}
 
           <div className="ml-auto flex items-center gap-2">
             <Link

@@ -203,6 +203,25 @@ describe("the partner portal conversation", () => {
     expect(openTopic).toHaveBeenCalledWith("support");
   });
 
+  /* Account Settings' "Ask BES to add or remove someone" links here
+     (2026-10-02): the Support conversation is opened, or offered to start. */
+  it("opens straight to a topic named in the link, offering to start it", () => {
+    rtlRender(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={["/partner/messages?topic=support"]}><PortalMessages partnerGroupId="g1" /></MemoryRouter>
+      </QueryClientProvider>);
+    fireEvent.click(screen.getByRole("button", { name: /Start the Support conversation/ }));
+    expect(openTopic).toHaveBeenCalledWith("support");
+  });
+
+  it("ignores a topic in the link that is not one of the portal's", () => {
+    rtlRender(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={["/partner/messages?topic=internal"]}><PortalMessages partnerGroupId="g1" /></MemoryRouter>
+      </QueryClientProvider>);
+    expect(screen.getByRole("heading", { name: /General/ })).toBeInTheDocument();
+  });
+
   /* Dee, 2026-10-01 (PARTNER_PORTAL_DOCTRINE.md): General · Support · Projects ·
      Billing · DMs — no CreditOps or Marketing channel offered new. */
   it("offers General, Support and Billing, and no retired topic", () => {

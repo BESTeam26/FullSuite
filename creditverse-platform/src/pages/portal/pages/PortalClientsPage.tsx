@@ -15,7 +15,7 @@
 import { useRef, useMemo, useState } from "react";
 import { useVirtualRows } from "@/hooks/use-virtual-rows";
 import { VirtualSpacer } from "@/components/ui/virtual-spacer";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { AlertCircle, ArrowRight, Loader2, Search, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { OpsSelect } from "@/components/ui/ops-select";
@@ -39,7 +39,16 @@ const BUCKET_TONE: Record<ClientBucket, string> = {
 };
 
 export function PortalClientsPage() {
-  const [filters, setFilters] = useState<ClientFilters>({});
+  /* ?q= from the header search box. Followed when it changes, so searching
+     again from the header while already here updates the list. */
+  const [params] = useSearchParams();
+  const q = params.get("q") ?? "";
+  const [filters, setFilters] = useState<ClientFilters>(() => (q ? { search: q } : {}));
+  const [followedQ, setFollowedQ] = useState(q);
+  if (q !== followedQ) {
+    setFollowedQ(q);
+    setFilters((f) => ({ ...f, search: q || undefined }));
+  }
   /* Closed files are fetched so the strip can count them; the default bucket
      filter keeps them out of the table until somebody asks. */
   const clients = useMyPartnerClients(true);

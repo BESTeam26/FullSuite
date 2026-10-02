@@ -121,3 +121,10 @@ export async function sendPasswordReset(email: string): Promise<void> {
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: authCallbackUrl({ recovery: true }) });
   if (error) throw error;
 }
+
+/** Ends this person's sessions on every other device; this one stays signed in. */
+export async function signOutOtherDevices(): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.auth.signOut({ scope: "others" });
+  if (error) throw error;
+}
