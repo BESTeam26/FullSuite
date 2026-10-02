@@ -294,7 +294,10 @@ export function ClientWorkWorkspace({
               </>
             )}
 
-            {tab === "files" && <ClientDocumentsTab clientId={clientId} />}
+            {tab === "files" && (
+              <ClientDocumentsTab clientId={clientId}
+                partnerName={client?.outsourcingGroupId ? client.outsourcingGroupName ?? "the partner" : null} />
+            )}
 
             {tab === "history" && <ClientHistoryTab clientId={clientId} />}
         </div>

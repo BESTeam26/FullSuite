@@ -8305,6 +8305,22 @@ if (runs(77)) {
           () => as77(PC, `select string_agg(label, ',') as rows from public.my_partner_milestones() where project_id = '${PR}'`, build), "Published milestone"],
         ["…and no milestone note reaches them in any column",
           () => as77(PC, `select count(*)::int as rows from public.my_partner_milestones() m where row_to_json(m)::text like '%INTERNAL MILESTONE NOTE%'`, build), 0],
+        /* Client documents (20261002006000): a partner opens a client file only
+           when BES shared that exact file and the client is theirs. */
+        ...(() => {
+          const C7 = "44444444-0000-4000-8000-0000000000c7";
+          const fileRow = (shared) => `insert into public.files (agency_id, entity_type, entity_id, bucket, path, name, shared_with_partner)
+            values (${AG77}, 'fulfillment_client', '${C7}', 'bes-files', 'clients/${C7}/probe-doc.pdf', 'probe-doc.pdf', ${shared});`;
+          return [
+            ["a partner cannot open a client document BES has not shared",
+              () => as77(PC, `select public.partner_shared_client_object('clients/${C7}/probe-doc.pdf')::text as rows`, fileRow(false)), "false"],
+            ["…and can open it once BES shares it",
+              () => as77(PC, `select public.partner_shared_client_object('clients/${C7}/probe-doc.pdf')::text as rows`, fileRow(true)), "true"],
+            ["the storage rule for client documents asks the client rule, not 'any staff'",
+              () => q(`select (position('fulfillment_clients' in qual) > 0 and position('partner_shared_client_object' in qual) > 0)::text as rows
+                         from pg_policies where schemaname='storage' and tablename='objects' and policyname='bes_files_select'`)[0].rows, "true"],
+          ];
+        })(),
         /* Billing (20261002005000): who receives invoices is the partner's own
            business, and no signed-in user reads another partner's. */
         ["no signed-in user can ask for another partner's billing contact",

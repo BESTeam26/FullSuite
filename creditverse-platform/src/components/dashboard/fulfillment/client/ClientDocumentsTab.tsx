@@ -21,6 +21,9 @@ import { cn } from "@/lib/utils";
 import { useClientDocuments } from "@/lib/data/use-client-work-detail";
 import { requireSupabase } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useAgencyPermissions } from "@/lib/data/agency-permissions";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { setPartnerFileShared } from "@/lib/data/agency-partners";
 
 /** What kind of thing this is, for somebody scanning a long list. */
 const categoryOf = (name: string, mime: string | null) => {
@@ -32,7 +35,20 @@ const categoryOf = (name: string, mime: string | null) => {
   return "File";
 };
 
-export function ClientDocumentsTab({ clientId }: { clientId: string }) {
+/**
+ * `partnerName` is set when the client belongs to a partner: only then is
+ * there somebody to share a document with (Dee, 2026-10-02: client documents
+ * reach the Partner Portal only when BES shares them — set_partner_file_shared,
+ * which also checks the portal permission, the client and the file's folder).
+ */
+export function ClientDocumentsTab({ clientId, partnerName = null }: { clientId: string; partnerName?: string | null }) {
+  const perms = useAgencyPermissions();
+  const queryClient = useQueryClient();
+  const mayShare = !!partnerName && perms.can("partners.portal");
+  const share = useMutation({
+    mutationFn: ({ id, shared }: { id: string; shared: boolean }) => setPartnerFileShared(id, shared),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["creditops", "documents", clientId] }),
+  });
   const auth = useAuth();
   const userId = auth.user?.id ?? null;
   const agencyId = auth.agencyId ?? null;
@@ -126,6 +142,9 @@ export function ClientDocumentsTab({ clientId }: { clientId: string }) {
         </Button>
       </div>
 
+      {share.error && (
+        <p role="alert" className="mb-2 text-[11px] text-status-danger">{(share.error as Error).message}</p>
+      )}
       {docs.isLoading ? (
         <p className="py-8 text-center text-xs text-muted-foreground">Loading…</p>
       ) : rows.length > 0 && (
@@ -145,6 +164,17 @@ export function ClientDocumentsTab({ clientId }: { clientId: string }) {
               }}
               url={previews.data?.[`${d.bucket}/${d.path}`]}
               onOpen={() => void open(d.bucket, d.path)}
+              actions={mayShare ? (
+                <button type="button" disabled={share.isPending && share.variables?.id === d.id}
+                  onClick={() => share.mutate({ id: d.id, shared: !d.sharedWithPartner })}
+                  aria-label={d.sharedWithPartner ? `Stop sharing ${d.name} with ${partnerName}` : `Share ${d.name} with ${partnerName}`}
+                  className={cn("rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
+                    d.sharedWithPartner ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-900 hover:bg-emerald-500/15"
+                      : "border-border bg-card text-foreground hover:bg-muted")}>
+                  {share.isPending && share.variables?.id === d.id ? "Saving…" : d.sharedWithPartner ? "Shared · stop" : "Share with partner"}
+                </button>
+              ) : undefined}
             />
           ))}
         </FilePreviewGrid>

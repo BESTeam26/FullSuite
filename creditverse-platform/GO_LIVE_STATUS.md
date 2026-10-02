@@ -105,6 +105,40 @@ The three End of Day computations flagged by the privileged-helper check are
 deliberate (they compute the caller's own day or team report) and are now
 named exceptions in that check; every other pair still fails it.
 
+## 2026-10-02 — Client document storage rule (unblocks Files)
+
+Client documents live under clients/<client id>/… (29,615 files, nearly all
+ClickUp attachments: credit reports, IDs, progress reports). Before:
+- **any BES staff member could open any client's documents** — proven, JM,
+  James and Mark (who see no clients) opened a client's file;
+- **no partner could open any** — the request failed outright;
+- **nothing could be shared** — the sharing control refused client files (0
+  of 29,615 ever shared).
+
+Now (migrations 20261002006000 and its hotfix 006100):
+- a client document opens for whoever can see that client, asked of the
+  client tables' own rules (no copy of the rule), or for a partner contact
+  when BES shared that exact file and the client is theirs;
+- the one sharing control accepts a client's file — only for a portal-
+  permission holder (Dee, Rowell, Bryan) who can see the client, only a file
+  in that client's own folder, only when the client belongs to a partner;
+  each share is an audited entry on the client;
+- a **"Share with partner"** switch on a client's Files tab, for those
+  holders, on partner clients only.
+
+Proven per person: Dee, Jet, Allyssa, Rowell open the sample document;
+JM, James, Mark and Kaori do not. Round trip with a temporary partner
+contact: the shared file opens and is listed in their portal, an unshared
+file of the same client and another partner's shared file stay closed; an
+agent without the permission is refused. Channel, partner and activity files
+unaffected. Browser as Dee: previews load, the switch appears (not pressed —
+that would publish a real document). Matrix phase 77: 99/100.
+
+**Incident, recorded honestly:** the first version named the file path
+ambiguously (`name` meant the client's name inside the lookup), so for about
+three minutes around 5 AM Eastern every staff member was refused every
+client document. Found by the after-check and fixed by 006100.
+
 ## 2026-10-02 — Partner Portal: Billing (step 6)
 
 Done to PARTNER_PORTAL_DOCTRINE.md's Billing list:
