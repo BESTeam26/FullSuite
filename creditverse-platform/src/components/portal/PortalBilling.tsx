@@ -27,9 +27,11 @@ import { PageLoadError, PanelState } from "@/components/common/QueryState";
 import { hasRows } from "@/lib/ui/query-rows";
 import { PayInvoicePanel } from "@/components/billing/PayInvoicePanel";
 import {
-  creditUnitLabel, fetchPortalAccountCredit, fetchPortalBilling, fetchPortalInvoices,
-  fetchPortalPaymentMethods, fetchPortalPayments, fetchPortalProcessingCredits,
+  creditUnitLabel, fetchPortalAccountCredit, fetchPortalBilling, fetchPortalBillingContact, fetchPortalInvoices,
+  fetchPortalPaymentMethods, fetchPortalPayments, fetchPortalProcessingCredits, type PortalInvoice, type PortalPayment,
 } from "@/lib/data/portal-billing";
+import { pastDueNotice, splitInvoices } from "@/lib/portal/billing-view";
+import { PaymentReceipt } from "@/components/portal/PaymentReceipt";
 
 const STATUS_TONE: Record<string, string> = {
   paid: "border-emerald-500/40 bg-emerald-500/10 text-emerald-900",
@@ -78,6 +80,12 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
   const accountCredit = useQuery({ queryKey: ["portal", "billing", "account-credit"], queryFn: fetchPortalAccountCredit, ...opts });
   const credits = useQuery({ queryKey: ["portal", "billing", "processing-credits"], queryFn: fetchPortalProcessingCredits, ...opts });
   const methods = useQuery({ queryKey: ["portal", "billing", "methods"], queryFn: fetchPortalPaymentMethods, ...opts });
+  /* Who invoices go to — asked for only when Billing settings is open (rule 14). */
+  const billingContact = useQuery({
+    queryKey: ["portal", "billing", "contact"], queryFn: fetchPortalBillingContact,
+    ...opts, enabled: live && tab === "settings",
+  });
+  const [receipt, setReceipt] = useState<PortalPayment | null>(null);
 
   /* Resolved from the canonical list rather than held in state, so the amount
      the panel charges is always the balance the ledger currently says. */
@@ -115,6 +123,9 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
   }
 
   const currency = invoices.data?.[0]?.currency ?? "USD";
+  const lists = splitInvoices(invoices.data ?? []);
+  const late = pastDueNotice(s);
+  const autoPayOn = (methods.data ?? []).some((m) => m.method === "authorize_net_autopay");
   const processingAvailable = (credits.data ?? []).reduce((n, c) => n + c.available, 0);
 
   return (
@@ -146,6 +157,21 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
               <MessageSquare className="h-3.5 w-3.5" /> Contact BES
             </button>
           )}
+        </section>
+      )}
+
+      {/* Late but not suspended: said plainly, before it becomes a suspension
+          (Dee, 2026-10-01 doctrine: "Past due notice"). */}
+      {late.show && (
+        <section role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/50 bg-amber-500/10 px-4 py-3">
+          <p className="flex items-center gap-2 text-sm text-amber-950">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+            <span><span className="font-semibold">Past due:</span> {formatMoneyIn(s.overdueCents / 100, currency)} across {late.invoices} {late.invoices === 1 ? "invoice" : "invoices"}. Please pay to keep work moving.</span>
+          </p>
+          <button type="button" onClick={() => setTab("invoices")}
+            className="rounded-lg bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            See open invoices
+          </button>
         </section>
       )}
 
@@ -183,7 +209,9 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
             <CreditCard className="h-3.5 w-3.5" /> Payment method
           </p>
           <p className="mt-1 text-sm font-semibold text-foreground">{s.paymentMethods}</p>
-          <p className="text-[11px] text-muted-foreground">use your invoice number as the reference</p>
+          <p className="text-[11px] text-muted-foreground">
+            AutoPay {autoPayOn ? "on" : "off"} · use your invoice number as the reference
+          </p>
         </div>
 
         {/* The two ledgers, side by side and never merged. Money and rounds
@@ -286,72 +314,21 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
       )}
 
       {tab === "invoices" && (
-      <Panel icon={FileText} title="Invoices">
+      <Panel icon={FileText} title="Open invoices">
         {!hasRows(invoices) ? (
           <PanelState query={invoices}
             empty={<p className="py-4 text-center text-sm text-muted-foreground">No invoices yet.</p>} />
+        ) : lists.open.length === 0 ? (
+          <p className="py-3 text-center text-sm text-muted-foreground">Nothing to pay — every invoice is settled.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[36rem] text-left text-xs">
-              <thead>
-                <tr className="border-b border-border/60">
-                  <th className="py-1.5 pr-3 font-semibold text-muted-foreground">Invoice</th>
-                  <th className="py-1.5 pr-3 font-semibold text-muted-foreground">Issued</th>
-                  <th className="py-1.5 pr-3 font-semibold text-muted-foreground">Due</th>
-                  <th className="py-1.5 pr-3 text-right font-semibold text-muted-foreground">Amount</th>
-                  <th className="py-1.5 pr-3 text-right font-semibold text-muted-foreground">Balance</th>
-                  <th className="py-1.5 font-semibold text-muted-foreground">Status</th>
-                  <th className="py-1.5 text-right font-semibold text-muted-foreground">Pay</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(invoices.data ?? []).map((i) => (
-                  <tr key={i.id} className="border-b border-border/40 last:border-b-0">
-                    <td className="py-1.5 pr-3 font-medium text-foreground">
-                      {i.invoiceNumber}
-                      {i.periodKey && <span className="ml-1.5 text-muted-foreground">{i.periodKey}</span>}
-                    </td>
-                    <td className="py-1.5 pr-3 text-muted-foreground">{formatDate(i.issueDate)}</td>
-                    <td className="py-1.5 pr-3 text-muted-foreground">{formatDate(i.dueDate)}</td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-foreground">
-                      {formatMoneyIn(i.totalCents / 100, i.currency)}
-                    </td>
-                    <td className={cn("py-1.5 pr-3 text-right tabular-nums",
-                      i.balanceCents > 0 ? "font-semibold text-foreground" : "text-muted-foreground")}>
-                      {formatMoneyIn(i.balanceCents / 100, i.currency)}
-                    </td>
-                    <td className="py-1.5">
-                      <span className={cn("rounded border px-1.5 py-0.5 text-[10px] font-medium",
-                        STATUS_TONE[i.status] ?? "border-border bg-muted text-foreground")}>
-                        {STATUS_LABEL[i.status] ?? i.status}
-                      </span>
-                    </td>
-                    <td className="py-1.5 text-right">
-                      {i.balanceCents > 0 && !["void", "cancelled", "draft", "scheduled"].includes(i.status) ? (
-                        <button
-                          type="button"
-                          onClick={() => setPayingId(payingId === i.id ? null : i.id)}
-                          aria-expanded={payingId === i.id}
-                          className={cn(
-                            "rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors",
-                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                            payingId === i.id
-                              ? "border border-primary bg-primary/10 text-primary"
-                              : "bg-primary text-primary-foreground hover:bg-primary/90",
-                          )}
-                        >
-                          {payingId === i.id ? "Close" : "Pay"}
-                        </button>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <InvoiceTable rows={lists.open} payingId={payingId} onPay={(id) => setPayingId(payingId === id ? null : id)} />
         )}
+      </Panel>
+      )}
+
+      {tab === "invoices" && lists.paid.length > 0 && (
+      <Panel icon={FileText} title="Paid invoices">
+        <InvoiceTable rows={lists.paid} payingId={null} onPay={null} />
       </Panel>
       )}
 
@@ -378,6 +355,10 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
                     {p.reference && ` · ${p.reference}`}
                   </span>
                 </span>
+                <button type="button" onClick={() => setReceipt(p)}
+                  className="rounded-lg border border-border px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  Receipt
+                </button>
               </li>
             ))}
           </ul>
@@ -479,6 +460,15 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
               <dd className="mt-0.5 text-sm text-foreground">{s.paymentMethods}</dd>
             </div>
             <div>
+              <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Billing contact</dt>
+              <dd className="mt-0.5 text-sm text-foreground">
+                {billingContact.isLoading ? "Loading…"
+                  : billingContact.data ? <>{billingContact.data.name ? `${billingContact.data.name} · ` : ""}{billingContact.data.email}</>
+                  : "Not set — message BES to name who receives invoices"}
+              </dd>
+              <p className="text-[11px] text-muted-foreground">Invoices and receipts are emailed here.</p>
+            </div>
+            <div>
               <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">AutoPay</dt>
               <dd className="mt-0.5 text-sm text-foreground">
                 {(methods.data ?? []).some((m) => m.method === "authorize_net_autopay")
@@ -518,11 +508,71 @@ export function PortalBilling({ onContactBes }: { onContactBes?: () => void }) {
         </Panel>
       )}
 
+      {receipt && <PaymentReceipt payment={receipt} partnerName={s.partnerName} onClose={() => setReceipt(null)} />}
+
       <p className="text-[11px] text-muted-foreground">
         Processing credits are units of work, not money — they are separate from account credit above.
         Every figure here is calculated from your invoices and the payments recorded against them.
         If something looks wrong, contact BES and it can be checked against the same records.
       </p>
+    </div>
+  );
+}
+
+/** One invoice table for both lists — the same columns, the same status words. */
+function InvoiceTable({ rows, payingId, onPay }: {
+  rows: PortalInvoice[]; payingId: string | null; onPay: ((id: string) => void) | null;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[36rem] text-left text-xs">
+        <thead>
+          <tr className="border-b border-border/60">
+            <th className="py-1.5 pr-3 font-semibold text-muted-foreground">Invoice</th>
+            <th className="py-1.5 pr-3 font-semibold text-muted-foreground">Issued</th>
+            <th className="py-1.5 pr-3 font-semibold text-muted-foreground">Due</th>
+            <th className="py-1.5 pr-3 text-right font-semibold text-muted-foreground">Amount</th>
+            <th className="py-1.5 pr-3 text-right font-semibold text-muted-foreground">Balance</th>
+            <th className="py-1.5 font-semibold text-muted-foreground">Status</th>
+            {onPay && <th className="py-1.5 text-right font-semibold text-muted-foreground">Pay</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((i) => (
+            <tr key={i.id} className="border-b border-border/40 last:border-b-0">
+              <td className="py-1.5 pr-3 font-medium text-foreground">
+                {i.invoiceNumber}
+                {i.periodKey && <span className="ml-1.5 text-muted-foreground">{i.periodKey}</span>}
+              </td>
+              <td className="py-1.5 pr-3 text-muted-foreground">{formatDate(i.issueDate)}</td>
+              <td className="py-1.5 pr-3 text-muted-foreground">{formatDate(i.dueDate)}</td>
+              <td className="py-1.5 pr-3 text-right tabular-nums text-foreground">{formatMoneyIn(i.totalCents / 100, i.currency)}</td>
+              <td className={cn("py-1.5 pr-3 text-right tabular-nums",
+                i.balanceCents > 0 ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                {formatMoneyIn(i.balanceCents / 100, i.currency)}
+              </td>
+              <td className="py-1.5">
+                <span className={cn("rounded border px-1.5 py-0.5 text-[10px] font-medium",
+                  STATUS_TONE[i.status] ?? "border-border bg-muted text-foreground")}>
+                  {STATUS_LABEL[i.status] ?? i.status}
+                </span>
+              </td>
+              {onPay && (
+                <td className="py-1.5 text-right">
+                  {i.balanceCents > 0 && !["void", "cancelled", "draft", "scheduled"].includes(i.status) ? (
+                    <button type="button" onClick={() => onPay(i.id)} aria-expanded={payingId === i.id}
+                      className={cn("rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        payingId === i.id ? "border border-primary bg-primary/10 text-primary" : "bg-primary text-primary-foreground hover:bg-primary/90")}>
+                      {payingId === i.id ? "Close" : "Pay"}
+                    </button>
+                  ) : <span className="text-[11px] text-muted-foreground">—</span>}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

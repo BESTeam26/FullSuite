@@ -348,3 +348,10 @@ summary:focus-visible,
   .bes-connector-flow { animation: none; stroke-opacity: 0.18; }
 }
 
+
+/* A payment receipt prints alone (PaymentReceipt.tsx): while it is printing,
+   everything else on the page is hidden. Scoped to that one moment. */
+@media print {
+  body.printing-receipt > *:not(#bes-receipt) { display: none !important; }
+  body.printing-receipt #bes-receipt { position: static !important; }
+}

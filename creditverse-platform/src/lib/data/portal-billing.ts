@@ -133,6 +133,12 @@ export async function fetchPortalPayments(): Promise<PortalPayment[]> {
   }));
 }
 
+/** Who BES sends invoices and receipts to — the same rule the billing mail uses. */
+export async function fetchPortalBillingContact(): Promise<{ name: string | null; email: string } | null> {
+  const r = (await rpc("my_partner_billing_contact"))[0];
+  return r?.email ? { name: r.name ?? null, email: r.email } : null;
+}
+
 export async function fetchPortalAccountCredit(): Promise<PortalAccountCredit | null> {
   const r = (await rpc("my_partner_account_credit"))[0];
   if (!r) return null;

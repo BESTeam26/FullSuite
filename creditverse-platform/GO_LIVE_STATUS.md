@@ -105,6 +105,35 @@ The three End of Day computations flagged by the privileged-helper check are
 deliberate (they compute the caller's own day or team report) and are now
 named exceptions in that check; every other pair still fails it.
 
+## 2026-10-02 — Partner Portal: Billing (step 6)
+
+Done to PARTNER_PORTAL_DOCTRINE.md's Billing list:
+- **Open invoices** (soonest due first, with Pay) and **Paid invoices** are
+  now two lists; void, cancelled and draft appear in neither.
+- **Past due notice:** when an invoice is past due and the account is not yet
+  suspended, a notice says how much and across how many invoices, with a
+  link to the open list. The suspension banner still leads when suspended.
+- **AutoPay status** sits on the payment-method card, not only in settings.
+- **Receipts:** each payment has a Receipt button that opens a printable
+  receipt built from that payment's own record (BES already emails the same
+  receipt when a payment is recorded). Printing shows the receipt alone.
+- **Billing contact:** Billing settings names who invoices and receipts are
+  emailed to — from the same rule the billing mail uses.
+- Already present: payment methods and instructions, account and processing
+  credits kept apart, card payment honestly "not connected" while the
+  Authorize.Net key is refused.
+
+**Fixed — exposure (migration 20261002005000).** The billing-contact rule
+could be called by any signed-in user for any partner: proven, Kaori read
+another partner's billing name and email. It is now callable only by the
+server-side billing-mail functions; the partner reads their own through
+`my_partner_billing_contact()`. Proven: cross-partner refused, own contact
+returned, staff get nothing, billing mail still resolves its recipient.
+Matrix phase 77 holds both directions.
+
+Next in the doctrine's order: Files (still waits on the shared client
+document storage rule), then Updates, then Account Settings.
+
 ## 2026-10-02 — Partner Portal: Projects & Services (step 5)
 
 Done to PARTNER_PORTAL_DOCTRINE.md's list ("what BES is doing for them …

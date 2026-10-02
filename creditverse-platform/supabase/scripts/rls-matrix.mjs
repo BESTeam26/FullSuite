@@ -8305,6 +8305,12 @@ if (runs(77)) {
           () => as77(PC, `select string_agg(label, ',') as rows from public.my_partner_milestones() where project_id = '${PR}'`, build), "Published milestone"],
         ["…and no milestone note reaches them in any column",
           () => as77(PC, `select count(*)::int as rows from public.my_partner_milestones() m where row_to_json(m)::text like '%INTERNAL MILESTONE NOTE%'`, build), 0],
+        /* Billing (20261002005000): who receives invoices is the partner's own
+           business, and no signed-in user reads another partner's. */
+        ["no signed-in user can ask for another partner's billing contact",
+          () => as77(PC, `select count(*)::int as rows from public.partner_billing_email('44444444-0000-4000-8000-0000000000e8'::uuid)`), "ERR 42501"],
+        ["…while a partner reads their own billing contact",
+          () => as77(PC, `select (select email from public.my_partner_billing_contact()) as rows`), "probe.contact@example.test"],
         ["a BES owner, who is no partner's contact, gets no partner build through these",
           () => as77(OWNER77, `select ((select count(*) from public.my_partner_project_engines()) + (select count(*) from public.my_partner_milestones()))::int as rows`, build), 0],
       ];
