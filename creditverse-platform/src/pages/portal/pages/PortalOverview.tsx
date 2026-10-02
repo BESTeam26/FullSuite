@@ -23,7 +23,7 @@ import { useQuery } from "@tanstack/react-query";
 import { formatDate } from "@/lib/format-date";
 import { formatMoneyIn } from "@/lib/format-money";
 import { cn } from "@/lib/utils";
-import { useMyPartnerActionsNeeded, useMyPartnerUpdates } from "@/lib/data/use-partner-portal-actions";
+import { useMyPartnerActionsNeeded, useMyPartnerFeed } from "@/lib/data/use-partner-portal-actions";
 import { actionKindLabel, sortByKindThenDate } from "@/lib/portal/action-kinds";
 import { useMyPartnerClients, useMyPartnerProjects } from "@/lib/data/use-agency-partners";
 import { useMyPartnerServices, useMyPartnerTeam } from "@/lib/data/use-portal-conversations";
@@ -34,6 +34,7 @@ import { Avatar } from "@/components/common/Avatar";
 import { useChannels } from "@/lib/data/use-channels";
 import { PanelState } from "@/components/common/QueryState";
 import { hasRows } from "@/lib/ui/query-rows";
+import { PartnerFeedList } from "@/components/portal/PartnerFeedList";
 import type { PortalSummary } from "@/lib/portal/portal-nav";
 
 const Card = ({ label, value, tone, to, icon: Icon }: {
@@ -69,7 +70,7 @@ const Panel = ({ title, to, linkLabel, children }: {
 export function PortalOverview({ summary }: { summary: PortalSummary }) {
   const actions = useMyPartnerActionsNeeded();
   const clients = useMyPartnerClients(false);
-  const updates = useMyPartnerUpdates(5);
+  const updates = useMyPartnerFeed();
   const channels = useChannels();
   const services = useMyPartnerServices();
   const projects = useMyPartnerProjects();
@@ -276,16 +277,7 @@ export function PortalOverview({ summary }: { summary: PortalSummary }) {
           {!hasRows(updates)
             ? <PanelState query={updates} empty={<p className="py-2 text-sm text-muted-foreground">Nothing new.</p>} />
             : (
-            <ul className="divide-y divide-border/50">
-              {(updates.data ?? []).slice(0, 5).map((u) => (
-                <li key={u.id} className="py-1.5">
-                  <p className="text-xs text-foreground">
-                    <span className="font-medium">{u.clientName}</span> · {u.action}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">{formatDate(u.happenedAt?.slice(0, 10))}</p>
-                </li>
-              ))}
-            </ul>
+            <PartnerFeedList items={(updates.data ?? []).slice(0, 5)} />
           )}
         </Panel>
 

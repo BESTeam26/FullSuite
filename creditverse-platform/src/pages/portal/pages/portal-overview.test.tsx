@@ -15,7 +15,7 @@ vi.mock("@/lib/supabase/client", () => ({ requireSupabase: () => ({ rpc: async (
 vi.mock("@/lib/data/portal-billing", () => ({ fetchPortalBilling: async () => ({ groupId: "g", partnerName: "Test Partner", balanceCents: 20000, overdueCents: 20000, overdueInvoices: 1, nextBillingOn: "2026-10-07", nextBillingCents: 42500, paymentMethods: "card", suspended: false, suspendedAt: null, suspensionDetail: null }) }));
 vi.mock("@/lib/data/use-partner-portal-actions", () => ({
   useMyPartnerActionsNeeded: () => ok([{ kind: "document_required", source: "action", sourceId: "x1", title: "Upload missing document", detail: null, clientName: "Jensen Cedacero", requestedAt: "2026-10-01", dueOn: null, href: null }]),
-  useMyPartnerUpdates: () => ok([{ id: "u1", clientName: "Mikia Edwards", action: "moved to Completed", happenedAt: "2026-09-29T10:00:00Z" }]),
+  useMyPartnerFeed: () => ok([{ kind: "client_status", title: "Mikia Edwards moved to Completed", detail: null, href: "/partner/clients/C-1", happenedAt: "2026-09-29T10:00:00Z" }]),
 }));
 vi.mock("@/lib/data/use-agency-partners", () => ({
   useMyPartnerClients: () => ok([{ publicId: "c1", name: "Aaron Hills", status: "Processing", round: "R1", openItems: 0, lastActivityAt: "2026-10-01T10:00:00Z" }]),
@@ -44,5 +44,6 @@ describe("the Partner Overview", () => {
     expect(await screen.findByText("Office closed Oct 10")).toBeTruthy();
     expect(await screen.findByText("$425.00")).toBeTruthy();
     expect(screen.getByText("Next billing")).toBeTruthy();
+    expect(screen.getByText("Mikia Edwards moved to Completed").closest("a")?.getAttribute("href")).toBe("/partner/clients/C-1");
   });
 });

@@ -8347,6 +8347,25 @@ if (runs(77)) {
           () => as77(PC, `select (select email from public.my_partner_billing_contact()) as rows`), "probe.contact@example.test"],
         ["a BES owner, who is no partner's contact, gets no partner build through these",
           () => as77(OWNER77, `select ((select count(*) from public.my_partner_project_engines()) + (select count(*) from public.my_partner_milestones()))::int as rows`, build), 0],
+        /* Updates (20261002008000/008100): one clean feed over the canonical
+           records, scoped to the caller's own partner. */
+        ["a partner's Updates feed shows the milestone BES published, never the private one",
+          () => as77(PC, `select string_agg(title, ',') as rows from public.my_partner_feed(40, 'projects') where detail = 'Probe Build'`, build), "Milestone reached: Published milestone"],
+        ["…and no milestone note reaches the feed in any column",
+          () => as77(PC, `select count(*)::int as rows from public.my_partner_feed(100) f where row_to_json(f)::text like '%INTERNAL MILESTONE NOTE%'`, build), 0],
+        ["…and another partner's published milestone never appears in it",
+          () => as77(PC, `select count(*)::int as rows from public.my_partner_feed(100) where title like '%Other partner milestone%'`,
+            `insert into public.outsourcing_groups (id, agency_id, name, contact_email) values ('44444444-0000-4000-8000-0000000000e8'::uuid, ${AG77}, 'Other Partner', 'op@example.test');
+             insert into public.crm_projects (id, agency_id, partner_group_id, name) values ('44444444-0000-4000-8000-0000000000a8'::uuid, ${AG77}, '44444444-0000-4000-8000-0000000000e8'::uuid, 'Other Build');
+             insert into public.crm_milestones (project_id, key, label, client_visible, completed_at) values
+               ('44444444-0000-4000-8000-0000000000a8'::uuid, 'probe_other', 'Other partner milestone', true, now());`), 0],
+        ["a status change that also moves the round is one line in the feed, not two",
+          () => as77(PC, `select count(*)::int as rows from public.my_partner_feed(100, 'clients') where happened_at = '2026-09-01 10:00:00+00'`,
+            `insert into public.activity_events (agency_id, entity_type, entity_id, action, field, new_value, visibility, created_at) values
+               (${AG77}, 'fulfillment_client', '44444444-0000-4000-8000-0000000000c7', 'Status changed', 'status', 'Round 2 Sent', 'shared_with_partner', '2026-09-01 10:00:00+00'),
+               (${AG77}, 'fulfillment_client', '44444444-0000-4000-8000-0000000000c7', 'Round changed', 'round', 'Round 2', 'shared_with_partner', '2026-09-01 10:00:00+00');`), 1],
+        ["a BES owner, who is no partner's contact, gets an empty Updates feed",
+          () => as77(OWNER77, `select count(*)::int as rows from public.my_partner_feed(100)`, build), 0],
       ];
     })(),
   ];

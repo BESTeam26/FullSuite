@@ -105,6 +105,38 @@ The three End of Day computations flagged by the privileged-helper check are
 deliberate (they compute the caller's own day or team report) and are now
 named exceptions in that check; every other pair still fails it.
 
+## 2026-10-02 — Partner Portal: Updates (step 8)
+
+Done to PARTNER_PORTAL_DOCTRINE.md's Updates list ("the clean external
+activity feed … Not raw system logs"). One partner-scoped reader,
+`my_partner_feed()`, reads the canonical records and says each thing once,
+in a sentence, linking to where it lives:
+- **Client updates:** a client's status changed, or a client was added —
+  the entries already marked shared with the partner. A status change that
+  also moves the round wrote two entries at the same instant (all 81 round
+  entries in 30 days were paired); the feed now says it once.
+- **Projects:** a build went live or was completed; BES received something
+  it asked for. **Milestones and deliverables:** only ones BES published;
+  a deliverable opens its link in a new tab.
+- **Billing:** invoice issued, payment received. **Account:** a service
+  started or ended, an agreement sent or signed, BES shared a file.
+- Filter chips (Clients · Projects · Billing · Account) ask the database
+  for that group, so a partner with hundreds of client updates still finds
+  their invoices. "From BES" notices are unchanged above it.
+- The Overview's "Recent updates" uses the same feed and the same cached
+  request. Removed the old updates hook and an unused component.
+
+Proven as a temporary contact on the busiest real partner: client updates,
+one line per change, about 100 ms; the account group shows the service
+start; Kaori's feed shows her shared file and service start. Matrix phase
+77 now 110/111 (only the old mismatch): published milestone only, no
+internal note, never another partner's milestone, one line per change,
+staff get an empty feed.
+
+Not verified live: no invoice has been issued and no milestone published
+to any partner yet, so those lines have only been seen in the probe.
+Next in the doctrine's order: Account Settings.
+
 ## 2026-10-02 — Partner Portal: Files (step 7)
 
 Done to PARTNER_PORTAL_DOCTRINE.md's Files list ("shared files only"):
@@ -318,7 +350,7 @@ scope; their own pay is the released-payslip self branch.
 | Executive | Payroll: agent side organization-wide | Owners, Aaron (chief operations seat), Bryan (payroll key) | Same | seat or explicit key, never `agency_admin` | DB proof (Tech account, admin alone: 0), phase 37, `management-placement-probe` | none |
 | Executive | Payroll: BES side (cost, margin, settlement) | Owners + Bryan only | Owners + Bryan | `compensation.bes_cost.view` | DB proof (Dee, Bryan see 4 internal rows; Rowell, Tech, leads see 0), `compensation-probe` 37/37 | none |
 | Executive (Bryan) | Payroll + compensation, no finance | Yes | Yes | Company | `release-personas-probe` 46/46 | none |
-| Partner Portal User | Overview, Clients, Actions Needed, Messages | Yes | Respond, sign, message | Own partner only; no internal fields | phase 77 (12 checks), DB proof as Kaori (earlier today) | Projects & Services, Billing, Updates, Account Settings not re-walked today; **Files waits** on the shared-document storage rule |
+| Partner Portal User | Overview, Clients, Actions Needed, Messages | Yes | Respond, sign, message | Own partner only; no internal fields | phase 77 (12 checks), DB proof as Kaori (earlier today) | Projects & Services, Billing, Files and Updates rebuilt 2026-10-02 (DB proof + phase 77, 110/111); Account Settings next |
 | Partner Portal User | Any BES internal surface | No | No | — | phase 77, `partner_services` staff-only policy | none |
 
 ## BLOCKING

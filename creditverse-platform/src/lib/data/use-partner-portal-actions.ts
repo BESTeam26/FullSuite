@@ -9,6 +9,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
 import { requireSupabase } from "@/lib/supabase/client";
+import { toFeedItem, type FeedGroup, type PartnerFeedItem } from "@/lib/portal/partner-feed";
 
 /**
  * The kinds that are a REVIEW rather than a confirmation.
@@ -33,14 +34,6 @@ export interface PartnerActionItem {
   requestedAt: string;
   respondedAt: string | null;
   response: string | null;
-}
-
-export interface PartnerUpdate {
-  id: number;
-  happenedAt: string;
-  clientName: string;
-  action: string;
-  detail: string | null;
 }
 
 /** One row of everything the partner must act on, from any canonical source. */
@@ -103,23 +96,24 @@ export function useMyPartnerActions() {
   });
 }
 
-export function useMyPartnerUpdates(limit = 12) {
+/**
+ * The partner's Updates feed — client status changes, project milestones and
+ * deliverables, billing and account events — from my_partner_feed(), which
+ * scopes every line to the caller's own partner. `group` narrows it in the
+ * database, so a busy account's client updates never push its invoices out
+ * of a truncated list. The Overview and Updates page share the unfiltered key.
+ */
+export function useMyPartnerFeed(group: FeedGroup | null = null) {
   const auth = useAuth();
   return useQuery({
-    queryKey: ["portal", "partner", "updates", limit],
+    queryKey: ["portal", "partner", "feed", group ?? "all"],
     enabled: auth.mode === "live" && auth.status === "signed-in",
     staleTime: 60_000,
-    queryFn: async (): Promise<PartnerUpdate[]> => {
-      const sb = requireSupabase();
-      const { data, error } = await sb.rpc("my_partner_updates", { p_limit: limit });
+    queryFn: async (): Promise<PartnerFeedItem[]> => {
+      const { data, error } = await requireSupabase()
+        .rpc("my_partner_feed" as never, { p_limit: 40, p_kind: group } as never);
       if (error) throw error;
-      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
-        id: r.id as number,
-        happenedAt: r.happened_at as string,
-        clientName: r.client_name as string,
-        action: r.action as string,
-        detail: (r.detail as string) ?? null,
-      }));
+      return ((data ?? []) as Record<string, unknown>[]).map(toFeedItem);
     },
   });
 }
