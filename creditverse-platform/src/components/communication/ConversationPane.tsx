@@ -17,6 +17,7 @@
  * opens a thread. Nothing else — rule 14, and §41–§43's requirement that
  * sending a message must not reload the application.
  */
+import { Link } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Building2, FileText, Hash, Loader2, Lock, MessagesSquare, PanelRight, Pin,
@@ -87,13 +88,19 @@ export interface ConversationPaneProps {
   canPin?: boolean;
   /** For attachments: which tenant's storage prefix the files belong under. */
   organizationId?: string | null;
+  /**
+   * Links to where the conversation's subject lives, drawn in the header —
+   * "View invoices" in a Billing conversation (PARTNER_PORTAL_DOCTRINE.md:
+   * "pinned action links inside the channel header if relevant").
+   */
+  headerLinks?: { label: string; to: string }[];
 }
 
 export function ConversationPane({
   channelId, name, purpose, notice, glyph = "hash", owner = null,
   emptyLabel = "Start the conversation with your team.",
   readOnly = false, readOnlyReason, hideHeader = false, canPin = false, openToScope = false,
-  organizationId = null,
+  organizationId = null, headerLinks = [],
 }: ConversationPaneProps) {
   const auth = useAuth();
   const messages = useRichMessages(channelId);
@@ -109,11 +116,16 @@ export function ConversationPane({
   const [sendError, setSendError] = useState<string | null>(null);
   const [showPinned, setShowPinned] = useState(false);
   const [tab, setTab] = useState<ChannelTab>("messages");
-  /* Open by default, as the reference shows it — and remembered per person so
-     somebody who closes it is not given it back on every conversation. */
+  /* Open by default on a wide screen, as the reference shows it; closed on a
+     smaller one, where it would squeeze the conversation (Dee, 2026-10-01:
+     "collapsible and closed by default on smaller widths"). A person's own
+     choice, once made, is remembered and wins. */
   const [showDetails, setShowDetails] = useState(() => {
-    try { return window.localStorage.getItem("bes.communication.details") !== "off"; }
-    catch { return true; }
+    try {
+      const saved = window.localStorage.getItem("bes.communication.details");
+      if (saved === "on" || saved === "off") return saved === "on";
+    } catch { /* private window: fall through to the width */ }
+    return typeof window !== "undefined" && window.innerWidth >= 1280;
   });
   /* Fetched only once the Files tab is opened — rule 14, do not preload a tab
      nobody asked for. */
@@ -255,6 +267,16 @@ export function ConversationPane({
                   </p>
                 )}
                 {purpose && <p className="truncate text-xs text-muted-foreground">{purpose}</p>}
+                {headerLinks.length > 0 && (
+                  <p className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                    {headerLinks.map((l) => (
+                      <Link key={l.to} to={l.to}
+                        className="text-[11px] font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        {l.label} →
+                      </Link>
+                    ))}
+                  </p>
+                )}
               </div>
             </div>
             {/* From the reference: the star and who is in here, beside the
@@ -363,7 +385,7 @@ export function ConversationPane({
               </div>
               {day.messages.map((m) => (
                 <MessageRow key={m.clientMessageId ?? m.id} message={m}
-                  timeZone={zone}
+                  timeZone={zone} partnerConversation={!!self?.partnerGroupId}
                   isMine={m.authorId === auth.user?.id}
                   meUserId={auth.user?.id ?? null}
                   canPin={canPin}
@@ -458,7 +480,8 @@ export function ConversationPane({
           {threadRoot !== null && (
             <ThreadPanel channelId={channelId} rootId={threadRoot}
               root={rows.find((m) => m.id === threadRoot) ?? null}
-              timeZone={zone} canPin={mayPin} onClose={() => setThreadRoot(null)} />
+              timeZone={zone} canPin={mayPin} onClose={() => setThreadRoot(null)}
+              partnerConversation={!!self?.partnerGroupId} />
           )}
           {showDetails && <ChannelDetails channelId={channelId} />}
         </div>
@@ -468,7 +491,8 @@ export function ConversationPane({
         <div className="md:hidden">
           <ThreadPanel channelId={channelId} rootId={threadRoot}
             root={rows.find((m) => m.id === threadRoot) ?? null}
-            timeZone={zone} canPin={mayPin} onClose={() => setThreadRoot(null)} />
+            timeZone={zone} canPin={mayPin} onClose={() => setThreadRoot(null)}
+              partnerConversation={!!self?.partnerGroupId} />
         </div>
       )}
     </div>
@@ -484,9 +508,10 @@ export function ConversationPane({
  * channel's, so a thread cannot be reachable when its channel is not.
  */
 function ThreadPanel({
-  channelId, rootId, root, timeZone, canPin, onClose,
+  channelId, rootId, root, timeZone, canPin, onClose, partnerConversation = false,
 }: {
   channelId: string; rootId: number; root: RichMessage | null;
+  partnerConversation?: boolean;
   /* A thread is read on the same clock as the conversation it belongs to. */
   timeZone: string;
   canPin: boolean; onClose: () => void;
@@ -526,7 +551,7 @@ function ThreadPanel({
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3">
         {root && (
           <div className="mb-2 border-b border-border pb-2">
-            <MessageRow message={root} isMine={root.authorId === auth.user?.id}
+            <MessageRow message={root} partnerConversation={partnerConversation} isMine={root.authorId === auth.user?.id}
               meUserId={auth.user?.id ?? null} canPin={canPin} compact timeZone={timeZone}
               onReact={(emoji, mine) => actions.react.mutate({ messageId: root.id, emoji, mine })}
               onReply={() => undefined} onOpenThread={() => undefined}
@@ -546,7 +571,7 @@ function ThreadPanel({
             {(replies.data ?? []).length} {(replies.data ?? []).length === 1 ? "reply" : "replies"}
           </p>
           {(replies.data ?? []).map((m) => (
-            <MessageRow key={m.id} message={m} isMine={m.authorId === auth.user?.id}
+            <MessageRow key={m.id} message={m} partnerConversation={partnerConversation} isMine={m.authorId === auth.user?.id}
               meUserId={auth.user?.id ?? null} canPin={false} compact timeZone={timeZone}
               onReact={(emoji, mine) => actions.react.mutate({ messageId: m.id, emoji, mine })}
               onReply={() => undefined} onOpenThread={() => undefined}

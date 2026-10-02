@@ -26,7 +26,13 @@
  * words in a service's name.
  */
 
-export const PORTAL_TOPIC_KEYS = ["general", "creditops", "marketing", "support"] as const;
+/*
+ * Dee, 2026-10-01 (PARTNER_PORTAL_DOCTRINE.md, Messages): "General · Support ·
+ * Projects · Billing · Direct messages to assigned BES contacts." CreditOps
+ * and Marketing (the 09-13 menu) are no longer OFFERED, but a conversation
+ * that exists in one is still shown with its history — see topicsToShow.
+ */
+export const PORTAL_TOPIC_KEYS = ["general", "support", "projects", "billing", "creditops", "marketing"] as const;
 export type PortalTopicKey = (typeof PORTAL_TOPIC_KEYS)[number];
 
 export interface PortalTopic {
@@ -36,44 +42,40 @@ export interface PortalTopic {
   purpose: string;
   /**
    * The modules that make this conversation relevant. `null` means always:
-   * every partner can talk about their account in general, and every partner
-   * can ask for help — including one whose services have all ended, who is
+   * every partner can talk about their account in general, ask for help and
+   * ask about money — including one whose services have all ended, who is
    * precisely the person most likely to need to.
    */
   modules: string[] | null;
+  /** False for the retired 09-13 topics: kept when they exist, never offered new. */
+  offered: boolean;
+  /** Where the conversation's subject lives in the portal, for the header link. */
+  link: { label: string; to: string } | null;
 }
 
 export const PORTAL_TOPICS: PortalTopic[] = [
-  {
-    key: "general",
-    label: "General",
-    purpose: "Anything about the account",
-    modules: null,
-  },
-  {
-    key: "creditops",
-    label: "CreditOps",
-    purpose: "Client processing, disputes and results",
-    modules: ["creditops"],
-  },
-  {
-    key: "marketing",
-    label: "Marketing",
-    purpose: "Content, campaigns and approvals",
-    modules: ["sales_marketing"],
-  },
-  {
-    key: "support",
-    label: "Support",
-    purpose: "Access, billing and anything that is not working",
-    modules: null,
-  },
+  { key: "general", label: "General", purpose: "Anything about the account",
+    modules: null, offered: true, link: { label: "Actions needed", to: "/partner/actions" } },
+  { key: "support", label: "Support", purpose: "Access and anything that is not working",
+    modules: null, offered: true, link: null },
+  { key: "projects", label: "Projects", purpose: "Builds, campaigns, milestones and approvals",
+    modules: ["bes_crm", "sales_marketing"], offered: true, link: { label: "View projects", to: "/partner/services" } },
+  { key: "billing", label: "Billing", purpose: "Invoices, payments and your plan",
+    modules: null, offered: true, link: { label: "View invoices", to: "/partner/billing" } },
+  { key: "creditops", label: "CreditOps", purpose: "Client processing, disputes and results",
+    modules: ["creditops"], offered: false, link: { label: "View clients", to: "/partner/clients" } },
+  { key: "marketing", label: "Marketing", purpose: "Content, campaigns and approvals",
+    modules: ["sales_marketing"], offered: false, link: { label: "View projects", to: "/partner/services" } },
 ];
+
+/** The header link for a conversation's topic, or none. */
+export const topicLink = (topic: string | null | undefined) =>
+  PORTAL_TOPICS.find((t) => t.key === topic)?.link ?? null;
 
 /** The conversations to offer a partner whose live engagements are these. */
 export function topicsFor(liveModules: string[]): PortalTopic[] {
   const live = new Set(liveModules);
-  return PORTAL_TOPICS.filter((t) => t.modules === null || t.modules.some((m) => live.has(m)));
+  return PORTAL_TOPICS.filter((t) => t.offered && (t.modules === null || t.modules.some((m) => live.has(m))));
 }
 
 /**

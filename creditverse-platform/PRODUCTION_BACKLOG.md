@@ -58,8 +58,9 @@ Last reconciled: 2026-10-01, after the full review (stale entries corrected agai
   list. Kinds `monitoring_login` and `information_request` exist; nothing
   raises `monitoring_login` yet — DEE TO DECIDE: should the Support status
   MONITORING ISSUE raise it automatically, or should an agent ask
-  explicitly (a staff control)? Portal work order next:
-  Messages → Projects
+  explicitly (a staff control)? Messages done 2026-10-02 (see
+  GO_LIVE_STATUS.md). Portal work order next:
+  Projects
   & Services → Billing → Files (also: shared CLIENT documents live under
   clients/… and the partner storage rule covers only agency/partner/…, so
   downloads will fail once a client file is shared — none exists yet) →
@@ -178,7 +179,9 @@ says feels slow is profiled as a real session):**
   case under load, 2026-10-01; the suite failed twice on the 30 s limit after
   passing three times earlier the same day). The test allowance is 90 s now;
   the real item is whatever the popover + portal mount does that costs
-  seconds — profile `NotificationBell` under vitest and cut it.
+  seconds — profile `NotificationBell` under vitest and cut it. The time-off
+  request dialog has the same cost (4.6–5.8 s per case, 2026-10-02); its
+  allowance is 30 s.
 
 - **Bounded rendering for every high-volume list (Dee's rule, 2026-09-30) — DONE 2026-09-30.**
   Every list past a few hundred rows now renders through `useVirtualRows`

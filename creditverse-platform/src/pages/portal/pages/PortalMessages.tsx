@@ -31,7 +31,7 @@ import { useChannels } from "@/lib/data/use-channels";
 import {
   useMyPartnerServices, useMyPartnerTeam, usePartnerConversationActions,
 } from "@/lib/data/use-portal-conversations";
-import { topicsToShow, type PortalTopicKey } from "@/lib/portal/portal-conversations";
+import { topicLink, topicsToShow, type PortalTopicKey } from "@/lib/portal/portal-conversations";
 import { serviceIsLive, type ServiceStatus } from "@/lib/partners/partner-account";
 import { cn } from "@/lib/utils";
 import { PageLoadError } from "@/components/common/QueryState";
@@ -39,6 +39,8 @@ import { PageLoadError } from "@/components/common/QueryState";
 /** A row in the left rail, whether or not it exists in the database yet. */
 interface Entry {
   key: string;
+  /** The topic, for the header link — null for a direct message. */
+  topic: string | null;
   label: string;
   hint: string | null;
   channelId: string | null;
@@ -139,6 +141,7 @@ export function PortalMessages({ partnerGroupId }: { partnerGroupId: string }) {
     const existing = mine.find((c) => c.partnerTopic === t.key) ?? null;
     return {
       key: `topic:${t.key}`,
+      topic: t.key,
       label: t.label,
       /* The channel's own purpose once it exists — an agent may have said
          something more useful about it than the default ever could. */
@@ -156,6 +159,7 @@ export function PortalMessages({ partnerGroupId }: { partnerGroupId: string }) {
     const existing = mine.find((c) => c.kind === "direct" && c.directUserId === p.userId) ?? null;
     return {
       key: `dm:${p.userId}`,
+      topic: null,
       label: p.name,
       hint: p.roleLabel ?? (p.isPrimary ? "Your BES contact" : null),
       channelId: existing?.id ?? null,
@@ -170,7 +174,7 @@ export function PortalMessages({ partnerGroupId }: { partnerGroupId: string }) {
   const otherEntries: Entry[] = mine
     .filter((c) => !c.partnerTopic && c.kind !== "direct")
     .map((c) => ({
-      key: `ch:${c.id}`, label: c.displayName, hint: c.serviceName ?? c.purpose,
+      key: `ch:${c.id}`, topic: null, label: c.displayName, hint: c.serviceName ?? c.purpose,
       channelId: c.id, unread: c.unread, start: null,
     }));
 
@@ -225,6 +229,7 @@ export function PortalMessages({ partnerGroupId }: { partnerGroupId: string }) {
             channelId={current.channelId}
             name={current.label}
             purpose={current.hint}
+            headerLinks={(() => { const l = topicLink(current.topic); return l ? [l] : []; })()}
             emptyLabel="No messages yet. Write to your BES team here."
           />
         ) : (
@@ -233,8 +238,8 @@ export function PortalMessages({ partnerGroupId }: { partnerGroupId: string }) {
             <p className="text-sm font-semibold text-foreground">Start a conversation</p>
             <p className="mt-1 max-w-sm text-xs text-muted-foreground">
               Pick a channel on the left and write — BES sees it straight away. Anything about the
-              account can go in General; Support is for access, billing and anything that is not
-              working.
+              account can go in General, money questions in Billing, and Support is for access and
+              anything that is not working.
             </p>
           </div>
         )}

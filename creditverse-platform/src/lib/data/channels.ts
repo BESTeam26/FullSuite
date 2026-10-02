@@ -24,7 +24,7 @@ export interface Channel {
   /** Scopes a partner conversation to one service engagement (0192, §19). */
   partnerServiceId: string | null;
   /** Which of the four standing partner conversations this is (0333). */
-  partnerTopic: "general" | "creditops" | "marketing" | "support" | null;
+  partnerTopic: "general" | "support" | "projects" | "billing" | "creditops" | "marketing" | null;
   /** Whose channel it is, for the label. */
   organizationName?: string | null;
   partnerName?: string | null;

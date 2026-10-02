@@ -105,6 +105,31 @@ The three End of Day computations flagged by the privileged-helper check are
 deliberate (they compute the caller's own day or team report) and are now
 named exceptions in that check; every other pair still fails it.
 
+## 2026-10-02 — Partner Portal: Messages (step 4 of the doctrine's order)
+
+Done to PARTNER_PORTAL_DOCTRINE.md's Messages list:
+- **Channels are General · Support · Projects · Billing · direct messages to
+  the assigned BES team.** Projects is offered when a build or campaign is
+  live; General, Support and Billing always. CreditOps and Marketing are no
+  longer offered for new conversations, but one that exists keeps its place
+  and history (one Marketing conversation does). The server accepts the two
+  new topics and still refuses another partner's and any unknown topic
+  (migration 20261002003000; proven as Kaori).
+- **Who wrote it is always labelled:** "BES team" on staff messages, and now
+  "Partner" on the partner's own, in partner conversations and their threads.
+- **Header links to where the subject lives:** Billing → View invoices,
+  Projects → View projects, General → Actions needed.
+- **Channel details closed by default on smaller screens** (open from
+  1,280 px); a person's own choice, once made, still wins. Applies to BES
+  Communication too. Verified at 1,315 px (open) and 1,024 px (closed).
+- Already in place and unchanged: unread counts per conversation, partner
+  conversations separate from internal ones, @mentions only of people the
+  partner may contact, no staff directory.
+- Not verifiable live: no partner has written a message yet, so the Partner
+  badge is proven by its test; a real partner login is the human check.
+
+Next in the doctrine's order: Projects & Services, then Billing.
+
 ## 2026-10-02 — Dee's three follow-ups, done
 
 - **Old notifications cleared.** 1,968 unread notices from before October 1

@@ -10,6 +10,11 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { RequestTimeOffDialog } from "./RequestTimeOffDialog";
 import { addDays, businessToday, isBusinessDay, nextBusinessDay } from "@/lib/calendar/us-federal-holidays";
 
+/* The dialog's mount is slow in jsdom: 4.6–5.8 s per case on its own, over
+   the 5 s default under suite load (2026-10-02). The mount cost is the real
+   item, in PRODUCTION_BACKLOG.md beside the bell's. */
+vi.setConfig({ testTimeout: 30_000 });
+
 /*
  * These used to pick dates with plain arithmetic on today, and broke overnight
  * when today became a Saturday: "today + 7" landed on a weekend, the form

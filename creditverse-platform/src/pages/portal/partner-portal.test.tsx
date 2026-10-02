@@ -13,11 +13,14 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 
 /* Partner Information saves the profile through react-query mutations, so
    the portal now needs a client in the tree — a fresh one per render. */
+/* Inside a router, as every portal page is in the app — a conversation's
+   header links to where its subject lives (2026-10-02). */
 const render = (ui: ReactElement) =>
-  rtlRender(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
+  rtlRender(<QueryClientProvider client={new QueryClient()}><MemoryRouter>{ui}</MemoryRouter></QueryClientProvider>);
 /* The portal is a multi-page app now (2026-09-13), so these render the SECTION
    each block is about rather than the router. What they assert — what a
    partner sees, and what they must never see — is unchanged. */
@@ -188,11 +191,22 @@ describe("the partner portal conversation", () => {
     expect(openTopic).toHaveBeenCalledWith("support");
   });
 
-  it("offers CreditOps to a CreditOps partner and Marketing to nobody else", () => {
+  /* Dee, 2026-10-01 (PARTNER_PORTAL_DOCTRINE.md): General · Support · Projects ·
+     Billing · DMs — no CreditOps or Marketing channel offered new. */
+  it("offers General, Support and Billing, and no retired topic", () => {
     channels = [];
     render(<PortalMessages partnerGroupId="g1" />);
-    expect(screen.getByRole("button", { name: /CreditOps/ })).toBeInTheDocument();
+    for (const name of [/General/, /Support/, /Billing/]) {
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: /CreditOps/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Marketing/ })).not.toBeInTheDocument();
+  });
+
+  it("links a Billing conversation to the invoices", () => {
+    channels = [{ ...CHANNEL, id: "c-bill", partnerTopic: "billing", displayName: "Billing" }];
+    render(<PortalMessages partnerGroupId="g1" />);
+    expect(screen.getByRole("link", { name: /View invoices/ }).getAttribute("href")).toBe("/partner/billing");
   });
 
   it("keeps a conversation that exists after its service ends", () => {
@@ -235,6 +249,20 @@ describe("the partner portal conversation", () => {
     render(<PortalMessages partnerGroupId="g1" />);
     expect(screen.getByText("BES team")).toBeInTheDocument();
     expect(screen.getByText(/round 2 letters went out today/)).toBeInTheDocument();
+  });
+
+  it("labels the partner's own message too, so both sides are named", () => {
+    messages = [{
+      id: 2, channelId: "c1", authorId: "p-1", authorName: "Kaori", fromBes: false,
+      bodyText: "Thanks — sending the documents now.",
+      createdAt: "2026-09-06T11:00:00Z", editedAt: null, deleted: false,
+      messageType: "message", announcementId: null, announcementTitle: null,
+      announcementBody: null, announcementPublishedAt: null, parentMessageId: null,
+      replyToId: null, replyToText: null, replyToAuthor: null, replyCount: 0, replyParticipants: [],
+      lastReplyAt: null, pinned: false, reactions: [], attachments: [], mentions: [],
+    }];
+    render(<PortalMessages partnerGroupId="g1" />);
+    expect(screen.getByText("Partner")).toBeInTheDocument();
   });
 
   it("sends a reply into that same channel", () => {

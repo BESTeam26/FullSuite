@@ -31,6 +31,8 @@ import { cn } from "@/lib/utils";
 
 export interface MessageRowProps {
   message: RichMessage;
+  /** In a partner's conversation, a partner's message says so as clearly as a BES one does. */
+  partnerConversation?: boolean;
   /** The conversation's clock — Eastern inside BES, the partner's in theirs. */
   timeZone?: string;
   isMine: boolean;
@@ -59,7 +61,7 @@ export interface MessageRowProps {
 export function MessageRow({
   message: m, isMine, meUserId, canPin, onReact, onReply, onOpenThread, onPin, onDelete,
   onEdit, onRetry, onDismissFailed, compact = false, saved = false, onToggleSave,
-  timeZone = BES_TIMEZONE,
+  timeZone = BES_TIMEZONE, partnerConversation = false,
 }: MessageRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -125,6 +127,13 @@ export function MessageRow({
         {m.fromBes && (
           <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
             BES team
+          </span>
+        )}
+        {/* Dee, 2026-10-01: "a clear badge when a message is from BES staff vs
+            Partner." Only in a partner's conversation, where both are present. */}
+        {!m.fromBes && partnerConversation && (
+          <span className="rounded-full border border-border bg-muted px-1.5 py-0.5 text-[10px] font-bold text-foreground">
+            Partner
           </span>
         )}
         <span className="text-[11px] text-muted-foreground">{stampIn(m.createdAt, timeZone)}</span>
