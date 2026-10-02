@@ -3,7 +3,7 @@
 **Small on purpose** (Production Operating Mode §14). Four lists, no roadmap.
 Anything speculative belongs in `DEFERRED_AGENCY_WORK.md`, not here.
 
-Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
+Last reconciled: 2026-10-01, after the full review (stale entries corrected against GO_LIVE_STATUS.md and the live database).
 
 ---
 
@@ -22,13 +22,11 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
   implemented** (migrations 20261001012000–014000): leads work their
   people's agent payroll in placement scope, executives org-wide, agents see
   their own released payslips (My pay on Time & Attendance); BES side
-  unchanged and re-proven. DEE TO DECIDE: every `agency_admin` (Rowell and
-  the "Tech" account) now reads agent-side payroll organization-wide — the
-  brief says Executive is org-wide; say if the Tech account should lose the
-  admin role. DEE TO DECIDE: real partner "Kevin Hernandez" has carried a
-  live assignment to the fixture team "[TEST] Team A" since 2026-09-25 (a
-  probe side effect); end it from BES Partners › Assignments if it is not
-  intended.
+  unchanged and re-proven. Decided by Dee the same evening and done:
+  payroll scope comes from the seat or the payroll key, never `agency_admin`
+  (20261001015000); the Tech sample account is deactivated; the seven live
+  assignments of real partners to the fixture team "[TEST] Team A" are
+  ended.
 
 - **Partner Portal: doctrine recorded (CLAUDE.md §28), inventory done,
   exposure closed 2026-10-01 (migration 20261001008000).** A partner
@@ -61,7 +59,7 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
   raises `monitoring_login` yet — DEE TO DECIDE: should the Support status
   MONITORING ISSUE raise it automatically, or should an agent ask
   explicitly (a staff control)? Portal work order next:
-  Messages → Actions Needed → Messages → Projects
+  Messages → Projects
   & Services → Billing → Files (also: shared CLIENT documents live under
   clients/… and the partner storage rule covers only agency/partner/…, so
   downloads will fail once a client file is shared — none exists yet) →
@@ -107,18 +105,10 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
   End of Day. **Closed-app push on Chrome on Mac: VERIFIED, 2026-10-01
   12:40 PM ET (message id 35996, tested destination: End of Day).** The
   earlier "verified" had come before any push had been sent to the device.
-  Phone: still HUMAN TEST REQUIRED (all eight steps).
-  Correction, earlier the same day: Dee's first laptop test saw the in-app desktop
-  alert, not closed-app push — NO device had registered for anyone, because
-  `push_subscriptions` had row policies but no table grant (fixed in
-  20261001006000; proven per account). Registration failures now show their
-  reason in the bell. Browser push on a LAPTOP: HUMAN TEST REQUIRED again —
-  Dee, open the bell, press Turn on notifications, and the line must read
-  "Notifications are on for this device, including when FullSuite is closed." Phone:
-  HUMAN TEST REQUIRED — VERIFIED in full once Dee confirms one real phone
-  (iPhone: Share → Add to Home Screen first, then turn it on from the bell).
-- **EOD cutoff still unset** — the reminder uses shift end until
-  `agencies.eod_cutoff_local` is set (Dee's mockup: 7:00 PM ET).
+  Phone: still HUMAN TEST REQUIRED (all eight steps; iPhone: Share → Add to
+  Home Screen first, then turn it on from the bell). As of the 2026-10-01
+  review only Dee's laptop is registered: nobody else on the team has
+  turned notifications on yet.
 
 - **EOD hierarchy, next step after the Agent view (Dee, 2026-10-01).** The
   Agent EOD Submission View shipped on the existing engine (submit → locked
@@ -137,9 +127,8 @@ Last reconciled: 2026-09-21, after the Eastern workday lock (`1f6b8e7`).
 | # | Item | Why it matters today |
 |---|---|---|
 | N-1 | **Bureau Calling team has no members** | The queue routes work to a team with nobody on it; files would sit unassigned. Needs Dee to place somebody, or the queue stays empty by choice. |
-| N-2 | **Seven people have no pay rate** | Payroll cannot price their time. Dee is adding these. |
-| N-3 | **No PHP→USD rate on file** (P-023) | The first payroll release refuses until Dee records the rate or switches the payout currency. |
-| N-4 | **Five invitations unaccepted, two expired** | Julius, Gile, Alyssa, Dmacasiab, Roniel are staged but not in; two links have expired and need resending. |
+| N-2 | **12 of the 14 measured people have no pay arrangement** (live count, 2026-10-01 review) | Payroll skips anyone without one: they get no payslip at all. Set from People › a person › Compensation. |
+| N-4 | **Four expired, unaccepted invitations remain** (live count, 2026-10-01; everyone named on 09-21 is now active) | Housekeeping only: revoke them or resend if any is still wanted. |
 
 
 ## NEXT — Dee's production focus order
@@ -198,7 +187,6 @@ says feels slow is profiled as a real session):**
   few hundred rows uses the same hook and gets a case in
   `large-lists-are-bounded.test.tsx`.
 
-- Desktop / browser push notifications (brief: `docs/design-references/desktop-notifications-brief-2026-09-21.md`; VAPID keys already stored server-side).
 - TalentOps beyond the shipped workspace (D-022).
 - **Retention classes for sensitive uploads** (credit reports, identity
   documents, payroll files) so old files expire on a schedule instead of

@@ -20,6 +20,63 @@ holds the `chief_operations` seat) · **Partner Portal User** (Kaori). Bryan
 and the Tech account are `agency_admin`: an access role, not a management
 level (Dee, 2026-10-01).
 
+## Full review — 2026-10-01, 8–10 PM ET
+
+What was checked, first-hand: every sidebar page (22) and sub-page (30)
+loaded as Dee with request and error capture; eight daily pages at phone
+width; every page function called as an agent (Jet), a lead and department
+manager (Allyssa), a division lead (Rowell) and the partner contact (Kaori);
+all 17 scheduled jobs' last 24 hours; queues, delivery and data hygiene in
+the live database; every provider credential tested live from Settings ›
+Integrations; migrations local ⇄ remote; deployed Edge Functions; the
+tracking documents (backlog, deferred list, pilot issues, registers).
+
+**Platform health — working.** 52 pages load with no failed request and no
+error screen. 781 migrations, local and remote identical. 23 Edge Functions
+deployed. All 13 enabled scheduled jobs ran in the last 24 hours with zero
+failures (four billing jobs are switched off on purpose until payments are
+connected). No stuck or failed EOD email, no EOD report error in 14 days, no
+timer over the 10-hour cap, no pending leave or time-adjustment request. No
+page scrolls sideways on a phone. Database 190 MB; storage 16 GB of real
+client documents (about 30,000 files).
+
+**Integrations, tested live 2026-10-01 8:26 PM.** Resend (email): WORKING,
+sending as BES <noreply@bescrm.net>. GoHighLevel: agency credential WORKS
+(52 locations known, 2 mapped), but the webhook secret is NOT set, so no GHL
+event can arrive yet. Anthropic (AI): REFUSED. Lob (posted letters):
+REFUSED. Authorize.Net (payments): REFUSED. Each refused key needs a fresh
+key pasted by Dee; the documents' older claims that these worked are stale.
+
+**Operational findings from the live data (not code defects).**
+- Production is recorded only when somebody presses Complete Work. On
+  October 1 only Ivan did (8 files; Dee 1). Everyone else logged 5–7.5
+  hours with almost no work recorded in FullSuite, so their EOD reports,
+  Output scores and production reports read zero. The engine is right; the
+  work is happening somewhere FullSuite cannot see.
+- CreditOps actionable queue: 425 of 651 Dispute files, 83 of 409 Support,
+  11 Onboarding, 11 Complaints and 1 Bureau Calling have no assignee. 216
+  Onboarding files are flagged for lead review.
+- BES CRM: 65 open work units with no assignee; 37 are overdue (the
+  Attention Center shows them).
+- 12 of the 14 measured staff have no pay arrangement, so payroll would
+  skip them entirely.
+- Closed-app push: only Dee's laptop is registered. Nobody else has turned
+  notifications on.
+- Partner Portal: 1 of 25 partners has an active login (Kaori).
+- 2,129 unread notifications, concentrated in a few people (Jet 510,
+  Daniel 282, Allyssa 175) — mostly September assignment notices from the
+  ClickUp import. A very long unread list slows the bell (1.1 s at 171).
+- Four expired, never-accepted invitations remain (housekeeping).
+
+**Security gate.** The full matrix was started at 8 PM. Phase 2 counts
+whole tables as each persona; one such count of 20,000 activity rows as an
+agent does not finish within 60 seconds. No screen issues that read (every
+app read of activity is filtered to one record, measured at 2.3 s under the
+matrix's own load), so this is a harness cost, not a user-facing defect —
+but it is why the full gate has not completed since mid-September (P-011).
+The targeted phases for everything changed today passed (37, 70, 71, 77)
+and the latency gate passed across six roles.
+
 ## Payroll — who can view and edit whose (corrected 2026-10-01 PM)
 
 Scope comes from the person's seat, team leadership or an explicit payroll
