@@ -196,3 +196,20 @@ export function isActiveClient(c: { lifecycle?: ClientLifecycle | null; status: 
   if (c.lifecycle) return c.lifecycle === "active";
   return !LEGACY_INACTIVE_STATUSES.has(c.status);
 }
+
+/**
+ * The client lists' "Show" choice, decided once for every list (Dee,
+ * 2026-10-02: completed, archived and inactive clients stay out of Active by
+ * default). "Not active" is everything that is not active — completed,
+ * graduated and archived alike — so a finished client is never in neither.
+ */
+export type LifecycleView = "active" | "all" | "inactive";
+export const LIFECYCLE_VIEW_OPTIONS: { value: LifecycleView; label: string }[] = [
+  { value: "active", label: "Active clients" },
+  { value: "all", label: "All clients" },
+  { value: "inactive", label: "Not active" },
+];
+export function inLifecycleView(c: { lifecycle?: ClientLifecycle | null; status: string }, view: LifecycleView): boolean {
+  if (view === "all") return true;
+  return view === "active" ? isActiveClient(c) : !isActiveClient(c);
+}

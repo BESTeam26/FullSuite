@@ -74,14 +74,14 @@ re-run separately. Final state: every check passes except two —
 
 1. the long-standing bootstrap mismatch (`org.owner attention=2, want 1`),
    untouched;
-2. **NEEDS FIX — CreditOps, latent:** an agent who reaches a client only by
-   being assigned to it by name (the P-013 shape) cannot hand it off. Since
-   2026-09-28 the client's headline assignee is derived from department
-   assignees, so the handoff clears the agent's assignment first, and their
-   own handoff activity entry is then refused because they can no longer see
-   the file. No real person is affected today (every real agent sees the
-   whole client directory). Fixing it touches the CreditOps write path, so it
-   is recorded, not changed tonight.
+2. ~~CreditOps handoff, latent~~ — **FIXED 2026-10-02** (migration
+   20261002001000, Dee: "fix the handoffs"). The handoff now writes its own
+   entry before opening departments, and whoever holds a department of a
+   client can always open that client (P-013 applied to departments). Two
+   test files that automatic routing had given Nico and Paul on 09-23 were
+   released. Proven: all nine people holding department work see exactly the
+   same clients as before (identical fingerprints); matrix phases 47, 55,
+   60–64 and 74 pass, including new checks for the department-holder rule.
 
 **Fixed tonight — data exposure (migration 20261001019000).** The client
 conversation functions (`client_feed`, `client_posts`) checked access with a
@@ -104,6 +104,24 @@ model, and a due-date check that became false on the calendar, not in code.
 The three End of Day computations flagged by the privileged-helper check are
 deliberate (they compute the caller's own day or team report) and are now
 named exceptions in that check; every other pair still fails it.
+
+## 2026-10-02 — Dee's three follow-ups, done
+
+- **Old notifications cleared.** 1,968 unread notices from before October 1
+  (Eastern) were marked read for the 25 people they belonged to; nothing was
+  deleted, and each still appears on that person's Notifications page.
+  Unread total 2,129 → 161 (Jet 510 → 11).
+- **Handoffs fixed** — see the security gate section below.
+- **Finished clients are out of Active** (migration 20261002002000). 55
+  clients carried a closing status with an active lifecycle, mostly from the
+  ClickUp import: Program Completed 24, Graduated 14 (Dee confirmed
+  Graduated belongs here), Inactive / Canceled 17. Each moved to its matching
+  lifecycle with a history entry; from now on a closing status closes the
+  client and a working status reopens it. Both client lists share one "Show"
+  rule: Active · All · Not active, where "Not active" holds completed,
+  graduated and archived clients, so a finished client is never in neither.
+  Active count 1,468 → 1,413; none of those 55 had open queue work. Verified
+  in the browser as Dee.
 
 ## Payroll — who can view and edit whose (corrected 2026-10-01 PM)
 

@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fromCurrentUrl } from "@/lib/nav/return-to";
-import { isActiveClient } from "@/lib/fulfillment/fulfillment-client-domain";
+import { isActiveClient, inLifecycleView, LIFECYCLE_VIEW_OPTIONS, type LifecycleView } from "@/lib/fulfillment/fulfillment-client-domain";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { useDepartmentStatusMap } from "@/lib/data/use-department-statuses";
 import {
@@ -103,12 +103,9 @@ export function FulfillmentClientsPanel({
   const coverage = useCreditOpsCoverage();
   const unstaffed = useUnstaffedDepartments();
   /* Lifecycle view: active clients by default; history stays one click away. */
-  const [lifecycleView, setLifecycleView] = useState<"active" | "all" | "archived">("active");
+  const [lifecycleView, setLifecycleView] = useState<LifecycleView>("active");
   const lifecycleFiltered = useMemo(
-    () =>
-      store.clients.filter((c) =>
-        lifecycleView === "all" ? true : lifecycleView === "active" ? isActiveClient(c) : (c.lifecycle ?? (isActiveClient(c) ? "active" : "archived")) === "archived",
-      ),
+    () => store.clients.filter((c) => inLifecycleView(c, lifecycleView)),
     [store.clients, lifecycleView],
   );
   const [showColumns, setShowColumns] = useState(false);
@@ -294,12 +291,8 @@ export function FulfillmentClientsPanel({
         <span className="text-muted-foreground">Show</span>
         <OpsSelect
           value={lifecycleView}
-          onValueChange={(v) => setLifecycleView(v as "active" | "all" | "archived")}
-          options={[
-            { value: "active", label: "Active clients" },
-            { value: "all", label: "All clients" },
-            { value: "archived", label: "Archived clients" },
-          ]}
+          onValueChange={(v) => setLifecycleView(v as LifecycleView)}
+          options={LIFECYCLE_VIEW_OPTIONS}
           aria-label="Lifecycle filter"
         />
       </div>

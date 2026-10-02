@@ -5489,6 +5489,25 @@ if (runs(62)) {
     ["A · …unless they are assigned it by name, which always counts (P-013)",
       () => p62(CO62, world62() + `update public.fulfillment_clients set assigned_agent_id='${CO62}' where id='${CL62}';`,
         handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])), '{"opened": ["Complaints"], "alreadyOpen": []}'],
+    /* 20261002002000: a closed status closes the client (Dee, 2026-10-02), and
+       a working status opens it again — status and lifecycle never disagree. */
+    ["a closing status takes the client out of Active, and a working status brings it back",
+      () => q(`begin; ${world62()}
+        update public.fulfillment_clients set status = 'Program Completed' where id='${CL62}';
+        create temp table lc62 on commit drop as select lifecycle::text as l from public.fulfillment_clients where id='${CL62}';
+        update public.fulfillment_clients set status = 'Inactive / Canceled' where id='${CL62}';
+        insert into lc62 select lifecycle::text from public.fulfillment_clients where id='${CL62}';
+        update public.fulfillment_clients set status = 'Ready for Round 1' where id='${CL62}';
+        insert into lc62 select lifecycle::text from public.fulfillment_clients where id='${CL62}';
+        select string_agg(l, ',' order by ctid) as rows from lc62; rollback;`)[0].rows, "program_completed,program_completed,active"],
+    /* 20261002001000: P-013 for departments — whoever holds the work can open
+       the file, even with no partner assignment and no headline. */
+    ["A · an agent who holds a DEPARTMENT of a client can open it, with no partner assignment",
+      () => p62(CO62, world62({ assign: false }) + `update public.client_department_statuses set assignee_id='${CO62}' where client_id='${CL62}' and department='Dispute';`,
+        `select count(*)::int as rows from public.fulfillment_clients where id='${CL62}'`), 1],
+    ["A · …and loses it again once the department is no longer theirs",
+      () => p62(CO62, world62({ assign: false }) + `update public.client_department_statuses set assignee_id=null where client_id='${CL62}';`,
+        `select count(*)::int as rows from public.fulfillment_clients where id='${CL62}'`), 0],
     ["A · …and partners.view is indeed what they are missing",
       () => p62(CO62, "", `select public.agency_can('partners.view')::text as rows`), "false"],
 
@@ -5890,10 +5909,13 @@ if (runs(64)) {
      told nobody — three notification checks read 0 while the notifier was
      working perfectly. The state each one needs is now stated, in its own
      rolled-back transaction: who owns the file, and which queue is shut. */
+  /* Delete first, assign second: since 2026-09-28 removing a department row
+     re-derives the client's headline assignee, so assigning first would be
+     undone by the delete before the probe even starts. */
   const ready64 = (client, agent, ...closed) => `
-    update public.fulfillment_clients set assigned_agent_id = '${agent}' where id = '${client}';
     delete from public.client_department_statuses
-     where client_id = '${client}' and department in (${closed.map((d) => `'${d}'`).join(",")});`;
+     where client_id = '${client}' and department in (${closed.map((d) => `'${d}'`).join(",")});
+    update public.fulfillment_clients set assigned_agent_id = '${agent}' where id = '${client}';`;
 
   const P64 = AG64 && GEN64 && EVAN64 && CLEO64 && WORK64 ? [
     /* ── the 0206 defect, from both sides ────────────────────────────── */
@@ -5948,20 +5970,22 @@ if (runs(64)) {
       q(`select name as rows from public.channels where id='${GEN64}'`)[0].rows],
 
     /* ── handoff ─────────────────────────────────────────────────────── */
-    /* Since 2026-09-28 a client's headline assignee is DERIVED from its
-       department assignees (creditops_refresh_headline): handing the file to
-       a department with nobody assigned clears it before the notifier reads
-       it, and the client team's lead is told instead. The rule worth pinning
-       is that somebody who can act is told — the lead, here. */
-    ["a handoff to an unassigned department tells the client team's lead",
+    /* The handoff writes its entry BEFORE opening the departments
+       (20261002001000), so the notifier still sees the agent who held the
+       file — even though opening an unassigned department then re-derives the
+       headline to nobody. */
+    ["a handoff tells the client's assigned agent",
       () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
-        nCount(`kind='handoff' and recipient_id='${LEAD64}' and entity_id='${EVAN64}'`), ready64(EVAN64, CO64, 'Dispute')), 1],
+        nCount(`kind='handoff' and recipient_id='${CO64}' and entity_id='${EVAN64}'`), ready64(EVAN64, CO64, 'Dispute')), 1],
     ["…and the lead of a team attached to the DESTINATION department, on a client whose own team has no lead",
       () => act64(OWN64, `select public.handoff_client_departments('${CLEO64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
         nCount(`kind='handoff' and recipient_id='${LEAD64}' and entity_id='${CLEO64}'`)), 1],
     ["a destination department with NO team attached still hands off, and tells the two who own the file",
       () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Complaints']::public.fulfillment_department[],array['COMPLAINT NOT NEEDED'],'probe');`,
-        nCount(`kind='handoff' and entity_id='${EVAN64}'`), ready64(EVAN64, CO64, 'Complaints')), 2],
+        /* The two who own the file — its agent and its team's lead. Counted
+           by name: since Complaints gained a real team (2026-09-25), its lead
+           is told as well, and that third notice is the destination rule. */
+        nCount(`kind='handoff' and entity_id='${EVAN64}' and recipient_id in ('${CO64}','${LEAD64}')`), ready64(EVAN64, CO64, 'Complaints')), 2],
     ["nobody is told twice when the client's own team IS the destination department's team",
       () => act64(OWN64, `select public.handoff_client_departments('${EVAN64}','Onboarding',array['Dispute']::public.fulfillment_department[],array['Ready for Processing'],'probe');`,
         nCount(`kind='handoff' and recipient_id='${LEAD64}' and entity_id='${EVAN64}'`), ready64(EVAN64, LEAD64, 'Dispute')), 1],

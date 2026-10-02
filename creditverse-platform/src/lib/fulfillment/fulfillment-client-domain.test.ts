@@ -7,8 +7,7 @@ import {
   stageToClientStatus,
   needsAttention,
   isStatusAutoSynced,
-  type FulfillmentClient,
-} from "./fulfillment-client-domain";
+  type FulfillmentClient, inLifecycleView } from "./fulfillment-client-domain";
 import type { WorkStage } from "@/lib/bes-domain";
 
 const client = (
@@ -189,5 +188,21 @@ describe("isStatusAutoSynced", () => {
         client({ id: "c", mode: "outsourcing_only", autoSync: true }),
       ),
     ).toBe(false);
+  });
+});
+
+/* Dee, 2026-10-02: completed, archived and inactive clients are not in Active. */
+describe("the Show choice on the client lists", () => {
+  const c = (lifecycle: "active" | "program_completed" | "graduated" | "archived") => ({ lifecycle, status: "x" });
+  it("Active shows only active clients", () => {
+    expect(["active", "program_completed", "graduated", "archived"].map((l) => inLifecycleView(c(l as never), "active")))
+      .toEqual([true, false, false, false]);
+  });
+  it("Not active holds every finished client — completed, graduated and archived — so none is in neither", () => {
+    expect(["active", "program_completed", "graduated", "archived"].map((l) => inLifecycleView(c(l as never), "inactive")))
+      .toEqual([false, true, true, true]);
+  });
+  it("All shows everyone", () => {
+    expect(inLifecycleView(c("archived"), "all")).toBe(true);
   });
 });

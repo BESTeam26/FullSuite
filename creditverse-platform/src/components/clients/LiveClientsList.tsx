@@ -23,7 +23,7 @@ import { useFulfillment } from "@/lib/data/use-fulfillment";
 import { partnerForOrganization } from "@/lib/data/partners";
 import { CreditOpsStoreProvider } from "@/lib/fulfillment/creditops-client-store";
 import { AddClientModal } from "@/components/dashboard/fulfillment/AddClientModal";
-import { LIFECYCLE_LABELS, isActiveClient, type ClientLifecycle } from "@/lib/fulfillment/fulfillment-client-domain";
+import { LIFECYCLE_LABELS, LIFECYCLE_VIEW_OPTIONS, inLifecycleView, isActiveClient, type ClientLifecycle, type LifecycleView } from "@/lib/fulfillment/fulfillment-client-domain";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
 
 /* One reading of a row for both the table (from md up) and the cards below it. */
@@ -45,7 +45,7 @@ function LiveClientsListInner() {
   const agency = useAgency();
   const fulfillment = useFulfillment();
   const [q, setQ] = useState("");
-  const [lifecycleView, setLifecycleView] = useState<"active" | "all" | "archived">("active");
+  const [lifecycleView, setLifecycleView] = useState<LifecycleView>("active");
   const [adding, setAdding] = useState(false);
   const [orgAdding, setOrgAdding] = useState(false);
   const clients = useQuery({ queryKey: ["creditops", "clients"], queryFn: fetchFulfillmentClients, staleTime: 15_000 });
@@ -54,7 +54,7 @@ function LiveClientsListInner() {
   const rows = useMemo(() => {
     const list = (clients.data ?? [])
       .filter((c) => !orgId || c.organizationId === orgId)
-      .filter((c) => (lifecycleView === "all" ? true : lifecycleView === "active" ? isActiveClient(c) : !isActiveClient(c)));
+      .filter((c) => inLifecycleView(c, lifecycleView));
     const s = q.trim().toLowerCase();
     return s ? list.filter((c) => c.name.toLowerCase().includes(s) || c.email.toLowerCase().includes(s)) : list;
   }, [clients.data, orgId, q, lifecycleView]);
@@ -76,8 +76,8 @@ function LiveClientsListInner() {
           <DataSourceBadge source="live" />
           <OpsSelect
             value={lifecycleView}
-            onValueChange={(v) => setLifecycleView(v as "active" | "all" | "archived")}
-            options={[{ value: "active", label: "Active clients" }, { value: "all", label: "All clients" }, { value: "archived", label: "Not active" }]}
+            onValueChange={(v) => setLifecycleView(v as LifecycleView)}
+            options={LIFECYCLE_VIEW_OPTIONS}
             aria-label="Lifecycle filter"
           />
           {partner ? (
