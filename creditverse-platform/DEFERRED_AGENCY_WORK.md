@@ -1261,7 +1261,7 @@ partner messages and action requests, per contact, bounded by the digest.*
 **Dependencies / risk.** Resend sending is live. The risk is noise — without
 the digest, alert fatigue makes partners mute everything.
 
-## D-025 — Partners adding and removing their own portal users (2026-10-02)
+## D-025 — Partners adding and removing their own portal users (2026-10-02) · REJECTED BY DEE 2026-10-02
 
 **Recorded by Claude while building Account Settings.** The doctrine lists
 "Portal users". Account Settings now shows every contact and their portal
@@ -1280,6 +1280,9 @@ active contact. BES can still override.
 
 **Why deferred, and why it needs Dee.** Portal access is access to client
 data (credit files, documents). Today BES decides every grant. Letting a
-partner grant it is an authorization change (rule 20: plan first). DEE TO
-DECIDE: should a partner's primary contact be able to invite colleagues
-without BES approving each one?
+partner grant it is an authorization change (rule 20: plan first).
+
+**Dee's answer, 2026-10-02: "NO, BES Approves every PORTAL Access."** Not
+built, and not to be built. The architecture above is kept only as the
+record of what was considered. The decision is locked in
+CURRENT_PRODUCT_DECISIONS.md › Partner Portal access.

@@ -62,7 +62,7 @@ Last reconciled: 2026-10-01, after the full review (stale entries corrected agai
   GO_LIVE_STATUS.md); Projects & Services done the same day. Portal work
   order: all nine pages done 2026-10-02 (Account Settings last; header
   search fixed). Open: D-024 partner email alerts, D-025 partner
-  self-service users (Dee to decide). Cleanup: `PortalClients` in
+  self-service users REJECTED (BES approves every portal access). Cleanup: `PortalClients` in
   PortalSections.tsx is no longer routed (PortalClientsPage is) and is
   kept only by its tests — remove with them.
 

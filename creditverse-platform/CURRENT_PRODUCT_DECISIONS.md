@@ -73,3 +73,13 @@ exceptions only.
 
 One BES agency; organizations are customers; a SaaS subscription is never
 fulfillment authorization; canonical records with authorized views, no copies.
+
+## Partner Portal access (Dee, 2026-10-02 — locked)
+
+**"BES approves every PORTAL Access."** A partner never grants, invites,
+removes or reinstates portal users themselves — not even their primary
+contact. Portal access is access to client data, so every grant is BES's.
+The partner sees who has access (Account Settings › Contacts and portal
+users) and asks through the Support conversation; BES staff act on it.
+Enforced in the data: `partner_contacts` insert and update are BES-only
+(matrix phase 77). Do not build a partner-side invite (D-025, rejected).

@@ -3,10 +3,10 @@
  * (PARTNER_PORTAL_DOCTRINE.md, Account Settings: "Contacts · Portal users").
  *
  * Read from partner_contacts under its own row rule — a partner contact sees
- * their own company's contacts and nobody else's. Read-only here: granting
- * someone portal access is BES's decision (it is access to client data), so
- * the partner asks through Support rather than through a control that would
- * have to be trusted in the browser.
+ * their own company's contacts and nobody else's. Read-only here, by Dee's
+ * decision (2026-10-02): "BES approves every PORTAL Access." Portal access is
+ * access to client data, so the partner asks through Support and BES grants
+ * it; the insert and update rules on partner_contacts are BES-only.
  */
 import { Link } from "react-router-dom";
 import { MessageSquare, Users } from "lucide-react";

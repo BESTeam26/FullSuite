@@ -114,8 +114,8 @@ Done to PARTNER_PORTAL_DOCTRINE.md's list, in its order:
 - **Contacts and portal users:** everyone on the account with title, email,
   phone, Primary, "(you)", and their portal access. Read-only: "Ask BES to
   add or remove someone" opens the Support conversation (Messages now opens
-  a topic from a link and offers to start it). Self-service invites are
-  D-025, a decision for Dee.
+  a topic from a link and offers to start it). Dee, 2026-10-02: "BES
+  approves every portal access" — partners never grant it (D-025 rejected).
 - **Notifications:** what BES actually sends and where — billing email to
   the billing contact (same rule as the billing mail), agreements to the
   signer, messages and actions as portal badges. No switches, because no
