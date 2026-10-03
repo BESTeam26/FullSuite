@@ -165,6 +165,15 @@ says feels slow is profiled as a real session):**
    unmounted, per rule 16b (a pause is not licence to remove the foundation).
    Nothing renders them; re-mounting is one tab.
 
+   **Finished 2026-10-03 to Dee's spec** — header carries Next Action and
+   Complete Work · Report Blocker · More; Complete Work is a right drawer on
+   desktop and a full-screen sheet on a phone (handoff inside); tabs Work ·
+   Client info · Documents · History; checklist shown only when one exists;
+   blocker panel reads the STORED blocker. Found on the way and fixed: the
+   checklist was unusable in production (policies matched nothing; table
+   read-only) and blockers accepted any staff member. Verified live at 360 /
+   390 / 412 and desktop. HUMAN TEST REQUIRED: an agent working a real file.
+
    Still open in this area: the two disconnected letter pipelines
    (`RoundLettersPanel` persists to the database; Print & Download reads an
    in-memory list that is always empty for a live client), and the CreditOps
@@ -174,14 +183,6 @@ says feels slow is profiled as a real session):**
 6. **Partner Portal** — after the internal workflow is stable (D-007).
 
 ## LATER — useful, not currently blocking operations
-
-- **EOD probe: four stale checks since the EOD document model** (found
-  2026-10-03). `eod-probe.mjs` still calls `eod_org_rollup()` (retired
-  2026-09-30, `20260930010000`) and reads the lead email's old `payload ->
-  'team'` shape. They fail for that reason only — the probe reads none of
-  the tables the 2026-10-03 time-visibility change touched. Rewrite those
-  four checks to the `eod_report()` document model. (Agent persona choice
-  in the same probe fixed 2026-10-03.)
 
 - **Route/code prefetch audit** (recorded 2026-10-03, Dee). A cold FullSuite
   load downloads roughly 250 background code files for unrelated pages

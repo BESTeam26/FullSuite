@@ -409,6 +409,38 @@ through two pricing functions; no payroll adjustment could be saved.)
   branch (migration 20261001014000). Any future "in scope" check must do the
   same or the matrix goes red for the wrong reason.
 
+## FIXED 2026-10-03 — clean test baseline, and the CreditOps client file finished
+
+**Baseline.** EOD probe: its four stale checks now test the document model
+(`eod_report('agency', …)`; the lead's email carries the stored report),
+and its personas are chosen deterministically from real accounts — it had
+been picking a fixture owner and an "agent" who leads teams; a filing is
+made in the filer's session, as the app makes it. Matrix setup check: the
+org attention oracle now counts the BES CRM work the organisation is
+entitled to read, exactly as its work oracle already did (an obsolete
+expectation, not a data discrepancy: the second item is "[TEST] GHL CRM
+build — Lakeside"). Probes 59/34/26/37/16/15/53, all zero failures.
+
+**Checklist was unusable in production.** `client_work_checklist` policies
+compared a client with its OWN `client_id` column (an unqualified name that
+changed meaning when fulfillment_clients gained that column) and matched no
+row; the table was also granted SELECT only. Nobody could see or tick a step;
+each open re-applied the template (486 invisible steps on 70 clients). Fixed
+in 20261003008000: read when the client is visible; tick/add/remove only with
+work authority in that department; update grants the done box only; standard
+steps cannot be deleted. `report_work_blocker` now asks the same authority
+(it accepted any staff member). Proven: Dispute agent ticks Dispute, refused
+Complaints; COO reads, does not act; partner reads nothing. Live: "Checklist
+(0/6)" on a real Onboarding file.
+
+**Client file.** Blocker panel reads the stored blocker (it was screen memory
+and read "Workable" after a reload); checklist only when one exists; header:
+Next Action, Complete Work · Report Blocker · More; Complete Work a right
+drawer (desktop, 448px) / full-screen sheet (phone), handoff inside; tabs
+Work · Client info · Documents · History. Mobile overflow fixed (the file
+was 440px wide on a 390px phone). History scanned on the 40 busiest files:
+1,244 entries, no undefined/null/[object Object], no empty titles.
+
 ## FIXED 2026-10-03 — time visibility follows the organization (Dee's decision)
 
 Dee: "A generic management permission must NOT give someone access to every
