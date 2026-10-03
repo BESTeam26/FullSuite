@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ROSTER_LOADING_ID } from "@/lib/data/use-workforce";
 import { Button } from "@/components/ui/button";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { X } from "lucide-react";
@@ -96,7 +97,7 @@ export function BulkActionBar({
           placeholder="Assign to…"
           disabled={busy !== null}
           options={assignees.map((a) => ({ value: a.id ?? "", label: a.name }))}
-          onValueChange={(v) => void run("assignee", () => onApplyAssignee(v))}
+          onValueChange={(v) => { if (v !== ROSTER_LOADING_ID) void run("assignee", () => onApplyAssignee(v)); }}
         />
       </div>
 

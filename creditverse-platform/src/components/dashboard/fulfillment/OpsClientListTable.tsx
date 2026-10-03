@@ -17,6 +17,7 @@
  */
 
 import { useRef, useState, type ReactNode } from "react";
+import { ROSTER_LOADING_ID } from "@/lib/data/use-workforce";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useVirtualRows } from "@/hooks/use-virtual-rows";
 import { VirtualSpacer } from "@/components/ui/virtual-spacer";
@@ -100,6 +101,9 @@ interface OpsClientListTableProps<T extends OpsClient, Id extends string> {
   /** Scoped assignee pool — never the whole agency directory. */
   /** The roster this division may assign to, as identities, not labels. */
   assignees: readonly AssignedPerson[];
+  /** Called when a row's assignee picker opens, so the roster can be fetched
+      then rather than with the list. */
+  onAssigneePickerOpen?: () => void;
   renderStatusPill: (status: string) => ReactNode;
   /**
    * Colour for each option in the open status menu. Optional: a division that
@@ -123,6 +127,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
   statusOptions,
   selection,
   assignees,
+  onAssigneePickerOpen,
   renderStatusPill,
   statusTone,
   renderExtraCell,
@@ -195,6 +200,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
      identity and never matched back from the label (rule 4). "" is the
      honest empty choice: nobody, rather than a person named Unassigned. */
   const commitAgent = (clientId: string, assigneeId: string) => {
+    if (assigneeId === ROSTER_LOADING_ID) return; // "Loading people…" is not a choice
     const person = assignees.find((a) => (a.id ?? "") === assigneeId);
     actions.updateAssignee(clientId, person ?? { id: null, name: "Unassigned" }, actor);
     setEditingAgentId(null);
@@ -412,7 +418,7 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
         }
         return (
           <button
-            onClick={() => setEditingAgentId(client.id)}
+            onClick={() => { onAssigneePickerOpen?.(); setEditingAgentId(client.id); }}
             className="inline-flex items-center gap-1.5"
           >
             <Avatar name={client.assignedAgent ?? "Unassigned"} />

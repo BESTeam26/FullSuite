@@ -42,15 +42,24 @@ export function useWorkforce(options: { enabled?: boolean } = {}) {
  * the picker on the row and the picker in the modal can never offer different
  * people (rules 2 and 13).
  */
-export function useAssignableRoster(): AssignedPerson[] {
-  const roster = useWorkforce();
+export function useAssignableRoster(enabled = true): AssignedPerson[] {
+  /* `enabled` so a list can ask only when somebody opens a picker or selects
+     rows: the roster is members, teams AND this week's time entries — three
+     requests a client list does not need to draw its names, which come with
+     each row (2026-10-03). */
+  const roster = useWorkforce({ enabled });
+  const loading = enabled && roster.isLoading;
   return useMemo(
     () => [
       { id: null, name: "Unassigned" },
+      ...(loading ? [{ id: ROSTER_LOADING_ID, name: "Loading people…" }] : []),
       ...(roster.data?.people ?? [])
         .filter((p) => p.name)
         .map((p) => ({ id: p.userId, name: p.name })),
     ],
-    [roster.data],
+    [roster.data, loading],
   );
 }
+
+/** A placeholder picker entry while the roster loads — never a person. */
+export const ROSTER_LOADING_ID = "__loading__";

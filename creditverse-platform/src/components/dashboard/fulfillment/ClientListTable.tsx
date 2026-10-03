@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 /**
  * ClientListTable — CreditOps Main Client List, bound to the shared ops table.
  *
@@ -89,7 +89,10 @@ function ClientListTableImpl({
      looking at the same row rather than only the person who typed it. */
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["creditops"] });
   /* Identities from the live Workforce roster, shared with intake. */
-  const assignees = useAssignableRoster();
+  /* The roster only once somebody opens an assignee picker or selects rows
+     to bulk-assign — the names in the list come with each row. */
+  const [rosterWanted, setRosterWanted] = useState(false);
+  const assignees = useAssignableRoster(rosterWanted || selected.size > 0);
   /* A due date is the output of the SLA policy, so retyping one is a Team
      Lead action; everyone else reads it (Dee: no silent date edits). */
   const canOverrideDates = useAgencyPermissions().can("ops.manage");
@@ -149,6 +152,7 @@ function ClientListTableImpl({
       statusOptions={ALL_STATUS_OPTIONS}
       statusTone={statusPillTone}
       assignees={assignees}
+      onAssigneePickerOpen={() => setRosterWanted(true)}
       selection={{
         selected,
         onToggle: (id) => {

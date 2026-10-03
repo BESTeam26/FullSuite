@@ -12,6 +12,7 @@ import { FUNDINGOPS_DEPARTMENT_ORDER, isOpenFundingStatus } from "@/lib/fulfillm
 import { formatCurrency } from "@/lib/fulfillment/fundingops-domain";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useAssignableRoster } from "@/lib/data/use-workforce";
+import { useState } from "react";
 import {
   useFundingOpsStore,
 } from "@/lib/fulfillment/fundingops-client-store";
@@ -54,7 +55,9 @@ export function FundingClientListTable({
   departmentRows,
 }: FundingClientListTableProps) {
   /* Identities from the live Workforce roster, shared with intake. */
-  const assignees = useAssignableRoster();
+  /* The roster only once somebody opens an assignee picker. */
+  const [rosterWanted, setRosterWanted] = useState(false);
+  const assignees = useAssignableRoster(rosterWanted);
   const actor = useActor();
   const order = new Map(FUNDINGOPS_DEPARTMENT_ORDER.map((d, i) => [d as string, i]));
   const openRows = (id: string) =>
@@ -73,6 +76,7 @@ export function FundingClientListTable({
       actor={actor}
       statusOptions={ASSIGNABLE_STATUSES}
       assignees={assignees}
+      onAssigneePickerOpen={() => setRosterWanted(true)}
       slaWarningHours={SLA_WARNING_HOURS}
       renderStatusPill={(status) => <FundingStatusPill status={status} />}
       actions={{
