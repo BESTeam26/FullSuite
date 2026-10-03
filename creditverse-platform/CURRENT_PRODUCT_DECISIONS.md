@@ -83,3 +83,15 @@ The partner sees who has access (Account Settings › Contacts and portal
 users) and asks through the Support conversation; BES staff act on it.
 Enforced in the data: `partner_contacts` insert and update are BES-only
 (matrix phase 77). Do not build a partner-side invite (D-025, rejected).
+
+## Time visibility (Dee, 2026-10-03 — locked)
+
+Management visibility of time and attendance follows organizational
+placement; payroll visibility follows the explicit payroll capability; the
+owner is company-wide. Agent → self · Team Lead → self + teams led ·
+Department Lead → + teams in departments led · Division Lead → + divisions
+led · Executive (chief_operations seat) and Owner → company-wide. Several
+placements are a union. A generic management capability or the admin title
+alone never grants company-wide time visibility. Enforced in the database by
+`placement_people()`, `time_wide_agency_ids()`, `can_view_time_of()`,
+`can_manage_time_of()` (20261003005000); matrix phase 78.

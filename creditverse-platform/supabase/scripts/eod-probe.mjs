@@ -319,7 +319,10 @@ console.log("\nEach person sees the right people, and no more");
   const agent = one(`select m.user_id from agency_memberships m
       join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
       cross join lateral public.eod_route_for(m.user_id) r
-     where m.role = 'agency_user' and m.status = 'active' and r.reason = 'team_lead' limit 1`)?.user_id;
+     where m.role = 'agency_user' and m.status = 'active' and r.reason = 'team_lead'
+       and not exists (select 1 from team_memberships tm where tm.user_id = m.user_id and tm.is_lead)
+       and not exists (select 1 from management_seats s where s.user_id = m.user_id and seat_is_live(s.effective_from, s.effective_to))
+     order by m.user_id limit 1`)?.user_id;
 
   const seen = (u) => {
     const r = as(u, "", "select relationship, count(*)::int as n from public.eod_visible_people() group by 1;");
@@ -357,7 +360,10 @@ console.log("\nAn EOD is private to its author and their management");
   const owner = one("select user_id from agency_memberships where is_owner and status='active' limit 1").user_id;
   const agent = one(`select m.user_id from agency_memberships m
       join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
-     where m.role = 'agency_user' and m.status = 'active' limit 1`)?.user_id;
+     where m.role = 'agency_user' and m.status = 'active'
+       and not exists (select 1 from team_memberships tm where tm.user_id = m.user_id and tm.is_lead)
+       and not exists (select 1 from management_seats s where s.user_id = m.user_id and seat_is_live(s.effective_from, s.effective_to))
+     order by m.user_id limit 1`)?.user_id;
 
   if (agent) {
     const theirs = as(agent, "", `select

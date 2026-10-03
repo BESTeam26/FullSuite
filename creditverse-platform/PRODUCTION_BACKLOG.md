@@ -175,6 +175,14 @@ says feels slow is profiled as a real session):**
 
 ## LATER — useful, not currently blocking operations
 
+- **EOD probe: four stale checks since the EOD document model** (found
+  2026-10-03). `eod-probe.mjs` still calls `eod_org_rollup()` (retired
+  2026-09-30, `20260930010000`) and reads the lead email's old `payload ->
+  'team'` shape. They fail for that reason only — the probe reads none of
+  the tables the 2026-10-03 time-visibility change touched. Rewrite those
+  four checks to the `eod_report()` document model. (Agent persona choice
+  in the same probe fixed 2026-10-03.)
+
 - **Route/code prefetch audit** (recorded 2026-10-03, Dee). A cold FullSuite
   load downloads roughly 250 background code files for unrelated pages
   (`lib/nav/prefetch-visible.ts` warms every screen in the rendered menu

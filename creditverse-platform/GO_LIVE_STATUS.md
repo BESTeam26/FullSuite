@@ -394,28 +394,6 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 ## NEEDS FIX
 
-- **Partner "next step" misses two renamed statuses** (found 2026-10-03 by
-  the routing probe, check 51; not changed). `creditops_partner_next_step()`
-  still lists `BC COMPLETED` / `CM COMPLETED` / `CM AWAITING RESPONSE`, not
-  the current `BUREAU CALLING COMPLETED` / `COMPLAINT COMPLETED`, so a
-  partner may read "in progress" for finished complaint or bureau-calling
-  work. Small, partner-facing wording; fix with the vocabulary list.
-- **Matrix phase 75 check 14 is out of date, not the system.** It expects a
-  file returned after the 30-day wait to come back unassigned; Dee's rule
-  of 2026-09-22 (migration 20260922007000) is that this hop is assigned to
-  the support team. Update the check to assert a real support-team owner.
-
-- **DEE TO DECIDE — time entries are readable company-wide by anyone with
-  `ops.manage`** (found 2026-10-03 while fixing Reporting; pre-existing,
-  NOT changed). `time_entries_select` lets a staff member read their own
-  entries, or ALL the agency's entries if they hold management capability.
-  Allyssa manages 2 people and Daniel 5 (`managed_people()`), yet each reads
-  the time entries of all 17 staff — and Reporting's time figures for them
-  are therefore company-wide. CLAUDE.md §20b says management reach follows
-  placement (team → department → division), not the whole company, and the
-  payroll doctrine scopes leads the same way. Narrowing it is an
-  authorization change across Time, Attendance, Payroll and Reporting, so
-  it needs Dee's yes before it is planned and proven per role.
 - Full security matrix: today's run crawled (phase 2 after 20 minutes under
   machine load) and was stopped before applying migrations; phases 37, 70,
   71 (payroll) and 77 (portal) were re-run clean. The full gate must be
@@ -430,6 +408,53 @@ through two pricing functions; no payroll adjustment could be saved.)
   must also work for the matrix's fixture leads keeps the direct team-lead
   branch (migration 20261001014000). Any future "in scope" check must do the
   same or the matrix goes red for the wrong reason.
+
+## FIXED 2026-10-03 — time visibility follows the organization (Dee's decision)
+
+Dee: "A generic management permission must NOT give someone access to every
+employee's time entries across BES." One rule (20261003005000), from the
+canonical placement helpers: self · placement (teams led; teams inside a
+department or division seat — several placements add up) · organization-
+wide only for an owner, the chief_operations seat, or the explicit payroll
+capability. The admin title and `ops.manage` alone widen nothing. Applied
+in the database to time entries, attendance, leave, time adjustments and
+their decision, attendance corrections and their recording, team presence
+and manager clock-out. Payroll keeps `payroll_people()`; no payroll
+calculation changed.
+
+| Person | Time entries (people) | Attendance | Why |
+|---|---|---|---|
+| Allyssa | 17 → 3 | 20 → 3 | self + the 2 she manages |
+| Daniel | 17 → 6 | 20 → 8 | self + his 5 (+2 fixture accounts on his teams) |
+| Rowell | 17 → 12 | 20 → 15 | both division seats, unioned |
+| Bryan | 17 → 17 | 20 → 20 | explicit payroll capability |
+| Aaron | 17 → 17 | 20 → 20 | chief_operations seat + payroll |
+| Dee | 17 → 17 | 20 → 20 | owner |
+| Agents | 1 → 1 | 1 → 1 | self |
+
+Proof: every real persona before/after in one rolled-back transaction;
+synthetic team lead, payroll-only user, admin-title-only user; direct RPC
+refusals (read, attendance, correction, clock-out, leave, adjustment) for a
+manager outside scope. Matrix phase 78 holds all of it permanently.
+
+## FIXED 2026-10-03 — partner next step read retired status names
+
+`creditops_partner_next_step()` listed BC/CM abbreviations; current names
+(COMPLAINT COMPLETED / NOT NEEDED, BUREAU CALLING COMPLETED / NOT NEEDED)
+fell through to "BES is working on it". Now aligned with
+`creditops_status_is_actionable()`; COMPLAINT AWAITING RESPONSE reads
+"Waiting for bureau results" (20261003006000). No live row held a retired
+name. Phase 78 asserts every closed status reads completed/closed.
+
+## FIXED 2026-10-03 — one guard keeps test clients from real staff
+
+On top of the hourly-sweep fix: a guard on the assignment write itself
+(client department rows and the client headline), using the canonical
+`is_fixture` flags — automatic paths leave a test client unassigned;
+a person choosing directly is refused (20261003007000). Covers routing,
+the SLA return, handoffs, equal distribution and any future path. Matrix
+phase 75 check 14 rewritten to the current rule (Support workstream; owner
+is Support or nobody; the mailing agent no longer holds it).
 
 ## FIXED 2026-10-03 — test clients in real agents' queues
 

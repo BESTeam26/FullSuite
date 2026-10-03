@@ -6797,8 +6797,15 @@ if (runs(69)) {
     /* ── decisions: management authority, never one's own request ──────── */
     ["an agent cannot decide a request",
       () => p69(AGENT69, `${mkReq} select public.decide_time_adjustment(current_setting('probe.req')::uuid, true) as rows`, seedClosed), "ERR 42501"],
-    ["an admin approves; the entry moves and the request closes",
-      () => p69(ADM69, `select public.decide_time_adjustment(current_setting('probe.req')::uuid, true);
+    /* Dee, 2026-10-03: acting on someone's time follows placement (their
+       lead, their department/division seat), an owner or the operations
+       seat — the admin title alone is not management (20261003005000). */
+    ["the admin title alone cannot decide somebody's time",
+      () => p69(ADM69, `select public.decide_time_adjustment(current_setting('probe.req')::uuid, true) as rows`,
+        seedClosed + ` set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT69}","role":"authenticated"}';
+        select set_config('probe.req', public.request_time_adjustment(${ENTRY}, now() - interval '270 minutes', 'Forgot to stop; I finished at half past.')::text, true);`), "ERR 42501"],
+    ["their team lead approves; the entry moves and the request closes",
+      () => p69(LEAD69, `select public.decide_time_adjustment(current_setting('probe.req')::uuid, true);
         select ((select status from public.time_adjustment_requests where id = current_setting('probe.req')::uuid) || ':' ||
                 (select (ended_at = started_at + interval '150 minutes')::text from public.time_entries where id = ${ENTRY})) as rows`,
         seedClosed + ` set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT69}","role":"authenticated"}';
@@ -6806,10 +6813,10 @@ if (runs(69)) {
         set local role postgres; select set_config('probe.req150', '', true);
         update public.time_adjustment_requests set requested_ended_at = (select started_at + interval '150 minutes' from public.time_entries where id = ${ENTRY}) where id = current_setting('probe.req')::uuid;`), "approved:true"],
     ["…and the decision is audited with both identities",
-      () => p69(ADM69, `select public.decide_time_adjustment(current_setting('probe.req')::uuid, true);
+      () => p69(LEAD69, `select public.decide_time_adjustment(current_setting('probe.req')::uuid, true);
         set local role postgres;
         select count(*)::int as rows from public.audit_log
-         where action = 'time_adjustment.approved' and actor_id = '${ADM69}'
+         where action = 'time_adjustment.approved' and actor_id = '${LEAD69}'
            and (after->>'requested_by') = '${AGENT69}'`,
         seedClosed + ` set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT69}","role":"authenticated"}';
         select set_config('probe.req', public.request_time_adjustment(${ENTRY}, now() - interval '270 minutes', 'Forgot to stop; I finished at half past.')::text, true);`), 1],
@@ -6825,8 +6832,16 @@ if (runs(69)) {
     /* ── the machinery stays the system's ──────────────────────────────── */
     ["the sweep is not callable by the API role",
       () => p69(AGENT69, `select public.auto_stop_stale_timers() as rows`), "ERR 42501"],
-    ["timer notifications are visible to their recipient and nobody else",
+    /* The auto-stop tells the agent AND their team lead (notify_timer_stopped).
+       Until 20261003005000 the lead could not see the time entry, so their
+       notice was hidden from them; now it is visible to them, and still to
+       nobody outside the team. */
+    ["a timer notice reaches the agent's team lead",
       () => p69(LEAD69, `select count(*)::int as rows from public.notifications
+         where kind = 'timer' and entity_id = ${ENTRY}::text`,
+        seedOpenStale + ` select public.auto_stop_stale_timers();`), 1],
+    ["…and nobody outside the team sees it",
+      () => p69(U["bes.funding@bes.test"], `select count(*)::int as rows from public.notifications
          where kind = 'timer' and entity_id = ${ENTRY}::text`,
         seedOpenStale + ` select public.auto_stop_stale_timers();`), 0],
   ];
@@ -6967,7 +6982,7 @@ if (runs(70)) {
         set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
         insert into public.leave_requests (agency_id, user_id, type_id, starts_on, ends_on)
         select '${AG70}'::uuid, '${AGENT70}'::uuid, id, current_date - 1, current_date - 1 from public.leave_types limit 1;
-        set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
         select public.decide_leave_request((select id from public.leave_requests where user_id = '${AGENT70}' order by created_at desc limit 1), true);
         select status as rows from public.attendance_for(current_date - 1, current_date - 1) a where a.user_id = '${AGENT70}'`), "on_leave"],
 
@@ -8111,12 +8126,37 @@ if (runs(75)) {
                  select status::text as rows from public.fulfillment_clients
                   where id='${CL75}'`), "Ready for Credit Review"],
 
-    ["14 — returned work comes back unassigned",
+    /* Dee, 2026-10-03 — the CURRENT rule: Round N Sent → 30-day wait → Ready
+       for Reimport / Credit Update → the Client Success / Support workstream.
+       The file belongs to Support; its individual owner is either nobody yet
+       (the Support Team Lead assigns) or somebody ON a Support / Client
+       Success team — never the Dispute agent who mailed the round, and never
+       a person outside Support. (This check used to demand "unassigned",
+       which predates the 2026-09-22 assign-on-return rule.) The client here
+       is a fixture, so the guard of 20261003007000 also keeps real staff off
+       it — "unassigned" is the expected owner for this file. */
+    ["14 — returned work lands in the Support workstream, owned by Support or nobody",
       () => run(`update public.fulfillment_clients set assigned_agent_id='${AGENT75}' where id='${CL75}';
                  ${enter(MAILED75, 'Dispute', '31 days')}
                  select public.sla_sweep();
-                 select coalesce(assigned_agent_id::text,'unassigned') as rows
-                   from public.fulfillment_clients where id='${CL75}'`), "unassigned"],
+                 select coalesce((select case
+                          when s.assignee_id is null then 'support|unassigned'
+                          when exists (select 1 from public.team_memberships tm
+                                         join public.teams t on t.id = tm.team_id
+                                         join public.departments d on d.id = t.department_id
+                                        where tm.user_id = s.assignee_id
+                                          and (d.name ilike '%support%' or d.name ilike '%client success%'))
+                            then 'support|support-agent'
+                          else 'support|OUTSIDE SUPPORT ' || s.assignee_id end
+                     from public.client_department_statuses s
+                    where s.client_id = '${CL75}' and s.department = 'Support'
+                      and public.creditops_status_is_actionable(s.department, s.status)), 'no open Support row') as rows`), "support|unassigned"],
+    ["14 — …and the Dispute agent who mailed the round no longer holds the file",
+      () => run(`update public.fulfillment_clients set assigned_agent_id='${AGENT75}' where id='${CL75}';
+                 ${enter(MAILED75, 'Dispute', '31 days')}
+                 select public.sla_sweep();
+                 select (coalesce(assigned_agent_id::text, '') <> '${AGENT75}')::text as rows
+                   from public.fulfillment_clients where id='${CL75}'`), "true"],
 
     ["15 — and returned work gets the 24-hour review clock",
       () => run(`${enter(MAILED75, 'Dispute', '31 days')}
@@ -8378,6 +8418,84 @@ if (runs(77)) {
     })(),
   ];
   runPhase("phase 77", P77, { strict: true });
+}
+
+if (runs(78)) {
+  startPhase("phase 78");
+  /* TIME VISIBILITY FOLLOWS THE ORGANIZATION (Dee, 2026-10-03; migration
+   * 20261003005000). Self always; placement (teams led, seats over a
+   * department or division) for managers; organization-wide only for an
+   * owner, the chief_operations seat or the explicit payroll capability. A
+   * generic management capability or the admin title alone widens nothing.
+   * Two fixture teams, one fixture person on each, staged per check. */
+  const AG78 = `(select id from public.agencies order by created_at limit 1)`;
+  const LEAD = U["bes.lead@bes.test"], A1 = U["bes.credit@bes.test"], A2 = U["bes.funding@bes.test"];
+  const PLAIN = U["bes.restricted@bes.test"], OWNER = U["bes.owner@bes.test"], ADMIN = U["bes.admin@bes.test"];
+  const T1 = "44444444-0000-4000-8000-0000000078a1", T2 = "44444444-0000-4000-8000-0000000078a2";
+  const FIXDEPT = `(select id from public.departments where name = '[TEST] Fixture Department' limit 1)`;
+  const seed = `insert into public.teams (id, agency_id, name, is_fixture) values ('${T1}'::uuid, ${AG78}, '[TEST] Time T1', true);
+                insert into public.teams (id, agency_id, name, is_fixture, department_id) values ('${T2}'::uuid, ${AG78}, '[TEST] Time T2', true, ${FIXDEPT});
+                insert into public.team_memberships (team_id, user_id, is_lead) values ('${T1}'::uuid, '${LEAD}'::uuid, true), ('${T1}'::uuid, '${A1}'::uuid, false), ('${T2}'::uuid, '${A2}'::uuid, false);
+                insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at) values
+                  (${AG78}, '${A1}'::uuid, 'admin', current_date - 1, now() - interval '26 hours', now() - interval '25 hours'),
+                  (${AG78}, '${A2}'::uuid, 'admin', current_date - 1, now() - interval '26 hours', now() - interval '25 hours');`;
+  const grant = (uid, key) => `insert into public.agency_member_permissions (membership_id, key, allowed)
+                  select id, '${key}', true from public.agency_memberships where user_id = '${uid}'::uuid
+                  on conflict do nothing;`;
+  const as78 = (uid, sql, extra = "") => {
+    try { return q(`begin; ${seed} ${extra} set local role authenticated; set local request.jwt.claims = '{"sub":"${uid}","role":"authenticated"}'; ${sql}; rollback;`)[0].rows; }
+    catch (e) { const m = (String(e.message) + "\n" + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/); return "ERR " + (m ? m[1] : "unknown"); }
+  };
+  /* Which of the two staged people the caller can read: "A1", "A2", "A1,A2" or "". */
+  const whom = `select coalesce(string_agg(case employee_id when '${A1}'::uuid then 'A1' else 'A2' end, ',' order by 1), '') as rows
+                  from (select distinct employee_id from public.time_entries where employee_id in ('${A1}'::uuid, '${A2}'::uuid)) x`;
+
+  const P78 = [
+    ["AGENT reads only their own time", () => as78(A1, whom), "A1"],
+    ["TEAM LEAD reads the team they lead, not another team", () => as78(LEAD, whom), "A1"],
+    ["DEPARTMENT seat reads the teams in that department only",
+      () => as78(PLAIN, whom, `insert into public.management_seats (agency_id, user_id, seat, department_id) values (${AG78}, '${PLAIN}'::uuid, 'department_manager', ${FIXDEPT});`), "A2"],
+    ["management capability (ops.manage) WITHOUT placement or payroll widens nothing",
+      () => as78(PLAIN, whom, grant(PLAIN, "ops.manage")), ""],
+    ["the admin title alone widens nothing", () => as78(ADMIN, whom), ""],
+    ["explicit PAYROLL capability reads organization-wide (payroll processing)",
+      () => as78(PLAIN, whom, grant(PLAIN, "payroll.view")), "A1,A2"],
+    ["OWNER reads organization-wide", () => as78(OWNER, whom), "A1,A2"],
+    ["attendance_for follows the same scope for a team lead",
+      () => as78(LEAD, `select coalesce(string_agg(distinct case user_id when '${A1}'::uuid then 'A1' when '${A2}'::uuid then 'A2' end, ','), '') as rows
+                          from public.attendance_for(current_date - 2, current_date) where user_id in ('${A1}'::uuid, '${A2}'::uuid)`,
+             `update public.agency_memberships set time_tracking_required = true where user_id in ('${A1}'::uuid, '${A2}'::uuid);`), "A1"],
+    ["a team lead cannot clock out someone outside their teams (direct RPC)",
+      () => as78(LEAD, `select public.manager_clock_out('${A2}'::uuid, 'probe')::text as rows`,
+             `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at) values (${AG78}, '${A2}'::uuid, 'admin', current_date, now() - interval '1 hour');`), "ERR 42501"],
+    ["a team lead cannot correct attendance outside their teams (direct RPC)",
+      () => as78(LEAD, `select public.record_attendance_correction('${A2}'::uuid, current_date - 1, 'excused', 'probe reason')::text as rows`), "ERR 42501"],
+    ["payroll capability alone cannot clock somebody out (management action)",
+      () => as78(PLAIN, `select public.manager_clock_out('${A1}'::uuid, 'probe')::text as rows`,
+             grant(PLAIN, "payroll.view") + ` insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at) values (${AG78}, '${A1}'::uuid, 'admin', current_date, now() - interval '1 hour');`), "ERR 42501"],
+
+    /* TEST CLIENTS NEVER REACH REAL STAFF (20261003007000) — the one guard on
+       the assignment write, whatever path writes it. */
+    ["an automatic path cannot give a test client to real staff",
+      () => q(`begin; update public.client_department_statuses set assignee_id = (select id from public.profiles where not coalesce(is_fixture,false) limit 1), assignment_method = 'automatic'
+                 where client_id = (select id from public.fulfillment_clients where is_fixture and archived_at is null limit 1);
+               select count(*)::int as rows from public.client_department_statuses s join public.fulfillment_clients c on c.id = s.client_id join public.profiles p on p.id = s.assignee_id
+                where c.is_fixture and not coalesce(p.is_fixture,false); rollback;`)[0].rows, 0],
+    ["no test client is assigned to real staff in the live data",
+      () => q(`select ((select count(*) from public.client_department_statuses s join public.fulfillment_clients c on c.id = s.client_id join public.profiles p on p.id = s.assignee_id
+                         where c.is_fixture and not coalesce(p.is_fixture,false))
+                     + (select count(*) from public.fulfillment_clients c join public.profiles p on p.id = c.assigned_agent_id
+                         where c.is_fixture and not coalesce(p.is_fixture,false)))::int as rows`)[0].rows, 0],
+
+    /* PARTNER NEXT STEP READS THE CURRENT STATUS NAMES (20261003006000). */
+    ["every current closed department status reads as completed or closed to a partner",
+      () => q(`select coalesce(string_agg(s, ','), '') as rows from unnest(array['BUREAU CALLING NOT NEEDED','BUREAU CALLING COMPLETED','COMPLAINT NOT NEEDED',
+                 'COMPLAINT COMPLETED','SUPPORT RESOLVED','ONBOARDING READY FOR ROUND 1','OB READY FOR R1','PARTNER ENDORSED','COMPLETED','ARCHIVED / INACTIVE']) s
+               where public.creditops_partner_next_step('Complaints', s) not in ('completed', 'closed')`)[0].rows, ""],
+    ["a complaint awaiting the bureau's response reads as waiting for results",
+      () => q(`select public.creditops_partner_next_step('Complaints', 'COMPLAINT AWAITING RESPONSE') as rows`)[0].rows, "waiting_for_results"],
+  ];
+  runPhase("phase 78", P78, { strict: true });
 }
 
 endPhase();

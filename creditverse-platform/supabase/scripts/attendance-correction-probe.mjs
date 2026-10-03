@@ -22,6 +22,9 @@ const check = (name, got, want) => {
 const one = (sql) => q.query(sql)[0];
 
 const AGENCY = one("select id from agencies order by created_at limit 1").id;
+/* Real corrections exist (ten "on time" rulings on 2026-09-21): the probe
+   proves it leaves the count where it found it, never that the table is empty. */
+const CORRECTIONS_BEFORE = one("select count(*)::int as n from public.attendance_corrections").n;
 const OWNER = one(`select m.user_id from agency_memberships m join profiles p on p.id = m.user_id
    where m.is_owner and m.status='active' and coalesce(p.is_fixture,false)=false limit 1`).user_id;
 /* An ordinary agent — neither management nor a lead of anybody. */
@@ -64,7 +67,7 @@ console.log("Who may correct");
   if (AGENT) {
     const r = correct(AGENT, SUBJECT, "approved_leave");
     check("an ordinary agent may not correct anybody", r.ok, false);
-    check("…and is told why", /lead of their team|management/.test(r.message ?? ""), true);
+    check("…and is told why", /lead of their team|lead or manager|management/.test(r.message ?? ""), true);
   }
   const own = correct(OWNER, OWNER, "approved_leave");
   check("nobody may correct their OWN attendance", own.ok, false);
@@ -121,7 +124,7 @@ console.log("\nWho may read one");
 
 console.log("\nAnd nothing survives the probe");
 check("no probe rows left behind",
-  one("select count(*)::int as n from public.attendance_corrections").n, 0);
+  one("select count(*)::int as n from public.attendance_corrections").n - CORRECTIONS_BEFORE, 0);
 check("direct inserts are refused — decided_by cannot be forged",
   (() => {
     const r = as(OWNER, `insert into public.attendance_corrections

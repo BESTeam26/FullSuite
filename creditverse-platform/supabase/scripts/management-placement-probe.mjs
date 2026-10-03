@@ -108,7 +108,11 @@ check("reads no pay rates, payslips or others' payout accounts", [r.pay_rates, r
 
 console.log("\nAdmin alone (Tech Support Team — agency_admin, no grants)\n");
 r = as(U["wecare@blessedempireservices.com"], S);
-check("admin reaches operations", r.clients, total);
+/* The Tech Support login was deactivated at Dee's request (2026-10-01): a
+   deactivated account reaches nothing at all. While it was active, an
+   admin reached operations; the payroll half below holds either way. */
+const techActive = q.query(`select count(*)::int as n from agency_memberships where user_id = '${U["wecare@blessedempireservices.com"]}' and status = 'active'`)[0].n > 0;
+check(techActive ? "admin reaches operations" : "a deactivated admin login reaches no client", r.clients, techActive ? total : 0);
 /* Dee, 2026-10-01: "Agency Admin by itself must NOT grant organization-wide
    payroll." No seat, no team — no pay, no BES side, no money key. */
 check("admin alone grants zero payroll", [r.pay_rates, r.payslips, r.bes_slips, r.bes_arr, r.settlements, r.payroll_view, r.compensation_view], [0, 0, 0, 0, 0, false, false]);
@@ -117,8 +121,10 @@ console.log("\nSeats are administered, never self-granted\n");
 const tryAs = (u, sql) => q.query(`begin; ${session(u)} do $c$ begin ${sql}; perform set_config('probe.r','ok',true); exception when others then perform set_config('probe.r', sqlstate, true); end $c$; select current_setting('probe.r', true) as r; rollback;`)[0].r;
 check("an agent cannot grant themselves a seat", tryAs(U["bes.credit@bes.test"], `insert into public.management_seats (agency_id, user_id, seat, division_id) values ('${AG}','${U["bes.credit@bes.test"]}','division_manager','${CREDITOPS}')`), "42501");
 check("a division manager cannot grant seats either", tryAs(U["bes.manager@bes.test"], `insert into public.management_seats (agency_id, user_id, seat, department_id) values ('${AG}','${U["bes.credit@bes.test"]}','department_manager','${DISPUTE}')`), "42501");
-check("a seat grant by an admin is audited (rolled back)", q.query(`begin; ${session(U["wecare@blessedempireservices.com"])} ${seat(U["bes.credit@bes.test"], "department_manager", null, DISPUTE)} select count(*)::int as n from public.activity_events where entity_id='${U["bes.credit@bes.test"]}' and field='management_seat' and created_at >= now() - interval '5 seconds'; rollback;`)[0].n, 1);
-check("the department's manager projection follows the seat (rolled back)", q.query(`begin; ${session(U["wecare@blessedempireservices.com"])} ${seat(U["bes.credit@bes.test"], "department_manager", null, DISPUTE)} select (manager_id='${U["bes.credit@bes.test"]}') as m from public.departments where id='${DISPUTE}'; rollback;`)[0].m, true);
+/* Granted by an active owner: the Tech Support admin login is deactivated (2026-10-01). */
+const ACTIVE_OWNER = one("select id from profiles where email='bes.owner@bes.test'").id;
+check("a seat grant by an admin is audited (rolled back)", q.query(`begin; ${session(ACTIVE_OWNER)} ${seat(U["bes.credit@bes.test"], "department_manager", null, DISPUTE)} select count(*)::int as n from public.activity_events where entity_id='${U["bes.credit@bes.test"]}' and field='management_seat' and created_at >= now() - interval '5 seconds'; rollback;`)[0].n, 1);
+check("the department's manager projection follows the seat (rolled back)", q.query(`begin; ${session(ACTIVE_OWNER)} ${seat(U["bes.credit@bes.test"], "department_manager", null, DISPUTE)} select (manager_id='${U["bes.credit@bes.test"]}') as m from public.departments where id='${DISPUTE}'; rollback;`)[0].m, true);
 
 console.log(`\n${pass} passed, ${failures.length} failed`);
 if (failures.length) { for (const f of failures) console.log("  - " + f); process.exit(1); }
