@@ -394,6 +394,17 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 ## NEEDS FIX
 
+- **Partner "next step" misses two renamed statuses** (found 2026-10-03 by
+  the routing probe, check 51; not changed). `creditops_partner_next_step()`
+  still lists `BC COMPLETED` / `CM COMPLETED` / `CM AWAITING RESPONSE`, not
+  the current `BUREAU CALLING COMPLETED` / `COMPLAINT COMPLETED`, so a
+  partner may read "in progress" for finished complaint or bureau-calling
+  work. Small, partner-facing wording; fix with the vocabulary list.
+- **Matrix phase 75 check 14 is out of date, not the system.** It expects a
+  file returned after the 30-day wait to come back unassigned; Dee's rule
+  of 2026-09-22 (migration 20260922007000) is that this hop is assigned to
+  the support team. Update the check to assert a real support-team owner.
+
 - **DEE TO DECIDE — time entries are readable company-wide by anyone with
   `ops.manage`** (found 2026-10-03 while fixing Reporting; pre-existing,
   NOT changed). `time_entries_select` lets a staff member read their own
@@ -419,6 +430,43 @@ through two pricing functions; no payroll adjustment could be saved.)
   must also work for the matrix's fixture leads keeps the direct team-lead
   branch (migration 20261001014000). Any future "in scope" check must do the
   same or the matrix goes red for the wrong reason.
+
+## FIXED 2026-10-03 — test clients in real agents' queues
+
+The hourly unclaimed-work sweep (`creditops_assign_unclaimed`, :20) chose
+from test fixture clients too, and the picker only chooses real staff: on
+Oct 2 07:20 it put "[TEST] Cleo Chan" in Archie Carlos's Complaints queue
+and "[TEST] Alice Archer" in Nico Angelo Garcia's Support queue. The sweep
+now skips fixture clients and the two rows were released
+(20261003004000). Dry-run first: 0 real files unassigned by it. Routing
+probe 52/53 (the one failure is the next-step wording above).
+
+## FIXED 2026-10-03 — Reporting for leads
+
+**Cause.** Not the request pattern and not the page: the same 7 requests
+for every role (the pivot waits ~0.25 s for the KPI list; nothing else is
+sequential). The difference was one source of the reporting facts —
+time entries — whose read rule called `is_manager_of()` on every row. For
+an admin that answers at once; for everyone else it ran the full
+capability lookup (~1.3 ms) for each of 841 rows.
+
+| Role | Facts view before → after | Scope options before → after |
+|---|---|---|
+| Executive | 789 → 501 ms | 808 → 512 ms |
+| Division lead | 784 → 468 ms | 867 → 509 ms |
+| Department lead | 1,769 → 638 ms | 1,741 → 666 ms |
+| Team lead | 1,681 → 545 ms | 1,763 → 620 ms |
+| Agent | 1,359 → 366 ms | 1,372 → 312 ms |
+
+**Change** (20261003003000): the rule asks "which agencies do I belong to /
+manage" once per request (`my_staff_agency_ids()`,
+`my_managed_agency_ids()`) instead of per row. Same meaning, same rows.
+
+**Parity.** All 33 sign-in accounts, old against new in one rolled-back
+transaction: identical visible time entries, identical Reporting pivots
+(every KPI, by person and by division) and identical scope options.
+Latency gate PASSED for all six roles (Reporting 0.36–0.79 s, guard 2 s,
+unchanged). Live as Dee: full report 1.92 → 1.38 s; first cards ~0.27 s.
 
 ## FIXED 2026-10-03 — CreditOps load time
 
