@@ -394,9 +394,11 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 ## NEEDS FIX
 
-- CreditOps cold load as the executive: 4.3 s, 18 requests (§26 says 3–5 s
-  is "investigate"). Not measured as an agent today; the latency gate run is
-  recorded below when it finishes.
+- **Reporting for leads is at or over the 2 s latency guard** (pre-existing,
+  measured before the 2026-10-03 CreditOps changes): Reporting pivot 2.0–2.9 s
+  and scope options ~2.0 s as Allyssa (department manager and team lead);
+  the executive is ~0.8 s. The latency gate fails on these paths until fixed.
+
 - Full security matrix: today's run crawled (phase 2 after 20 minutes under
   machine load) and was stopped before applying migrations; phases 37, 70,
   71 (payroll) and 77 (portal) were re-run clean. The full gate must be
@@ -411,6 +413,37 @@ through two pricing functions; no payroll adjustment could be saved.)
   must also work for the matrix's fixture leads keeps the direct team-lead
   branch (migration 20261001014000). Any future "in scope" check must do the
   same or the matrix goes red for the wrong reason.
+
+## FIXED 2026-10-03 — CreditOps load time
+
+Measured in the browser as Dee. Every database path was already under
+~320 ms per role; the time was in how the page loaded:
+- **Two round trips per list.** The client list and its department rows
+  were paged under the API's 1,000-row cap — first page, then the rest
+  (~1 s each). Now `creditops_client_list()` and
+  `creditops_department_rows_all()` return each list as one value
+  (20261003001000). The client list carries only the columns it shows —
+  no longer every client's date of birth.
+- **A closed dialog and unopened pickers loaded the roster** (members,
+  teams, this week's time entries) on every open: Add Client, and the
+  table's row assignee pickers. Now fetched when a picker opens or rows
+  are selected.
+- **Latent truncation fixed.** The coverage strip's rows came through the
+  same 1,000-row cap with no error (908 today): past a thousand actionable
+  files its totals would have undercounted. Now one value
+  (20261003002000).
+
+| | Before | After |
+|---|---|---|
+| Requests on opening CreditOps | 20 | 11, all in parallel |
+| Rows visible (from Home) | 2.2 s | 1.2–1.4 s |
+| All data loaded (from Home) | 2.6 s | 1.6–1.7 s |
+| Cold reload, last content painted | 4.3 s | 2.7 s |
+
+Proof per account, old against new: 33 sign-in accounts for the lists
+(clients, partner/organization/agent names, department rows identical);
+six accounts across the four views plus a partner for the coverage rows.
+Latency gate: both list paths and the coverage path added, per role.
 
 ## FIXED 2026-10-02 — the notification bell poll
 

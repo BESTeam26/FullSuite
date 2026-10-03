@@ -39,7 +39,10 @@ export function useCreditOpsCoverage() {
     queryKey: ["creditops", "coverage"],
     queryFn: async (): Promise<CoverageRow[]> => {
       const sb = requireSupabase();
-      const { data, error } = await sb.rpc("creditops_coverage_states" as never);
+      /* The whole set as one value: as a row-returning call the API would
+         cut it at 1,000 rows without an error, and the strip's totals would
+         quietly undercount (20261003002000). */
+      const { data, error } = await sb.rpc("creditops_coverage_states_all" as never);
       if (error) throw error;
       return (data as unknown as CoverageRow[]) ?? [];
     },

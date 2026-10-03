@@ -75,6 +75,7 @@ const PATHS = (fc, uid) => [
      each — the whole book as one jsonb value, the shape the browser asks. */
   ["main client list (whole, one request)", 700, 400, `select jsonb_array_length(public.creditops_client_list()) as n`],
   ["department rows · all (one request)",  800,  500, `select jsonb_array_length(public.creditops_department_rows_all(null)) as n`],
+  ["coverage strip · all (one request)",  900,  500, `select jsonb_array_length(public.creditops_coverage_states_all()) as n`],
   ["department rows · scope (Vanquish)",  800,  500, `select * from public.creditops_department_rows((select id from outsourcing_groups where name='Vanquish Ventures'))`],
   ["department statuses (200 ids)",      800,  500, `select s.*, p.full_name, p.email from client_department_statuses s left join profiles p on p.id=s.assignee_id where s.client_id in (select id from fulfillment_clients where archived_at is null and not is_fixture order by name limit 200) order by s.client_id`],
   ["open queue · Dispute",               800,  500, `select * from creditops_department_queue where department='Dispute' order by due_at nulls last limit 500`],
