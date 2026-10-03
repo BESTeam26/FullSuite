@@ -394,11 +394,17 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 ## NEEDS FIX
 
-- **Reporting for leads is at or over the 2 s latency guard** (pre-existing,
-  measured before the 2026-10-03 CreditOps changes): Reporting pivot 2.0–2.9 s
-  and scope options ~2.0 s as Allyssa (department manager and team lead);
-  the executive is ~0.8 s. The latency gate fails on these paths until fixed.
-
+- **DEE TO DECIDE — time entries are readable company-wide by anyone with
+  `ops.manage`** (found 2026-10-03 while fixing Reporting; pre-existing,
+  NOT changed). `time_entries_select` lets a staff member read their own
+  entries, or ALL the agency's entries if they hold management capability.
+  Allyssa manages 2 people and Daniel 5 (`managed_people()`), yet each reads
+  the time entries of all 17 staff — and Reporting's time figures for them
+  are therefore company-wide. CLAUDE.md §20b says management reach follows
+  placement (team → department → division), not the whole company, and the
+  payroll doctrine scopes leads the same way. Narrowing it is an
+  authorization change across Time, Attendance, Payroll and Reporting, so
+  it needs Dee's yes before it is planned and proven per role.
 - Full security matrix: today's run crawled (phase 2 after 20 minutes under
   machine load) and was stopped before applying migrations; phases 37, 70,
   71 (payroll) and 77 (portal) were re-run clean. The full gate must be

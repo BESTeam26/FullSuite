@@ -175,6 +175,15 @@ says feels slow is profiled as a real session):**
 
 ## LATER — useful, not currently blocking operations
 
+- **Route/code prefetch audit** (recorded 2026-10-03, Dee). A cold FullSuite
+  load downloads roughly 250 background code files for unrelated pages
+  (`lib/nav/prefetch-visible.ts` warms every screen in the rendered menu
+  when the browser is idle; most are served from cache after the first
+  visit, so warm loads barely notice). Goal: opening one module does not
+  aggressively download most of FullSuite when those routes are not needed
+  — e.g. warm only the next likely screens, or only on hover. Not a broad
+  frontend rewrite; measured on a cold cache and on a phone first.
+
 - **The notification bell mounts slowly in jsdom** (17–34 s per device-state
   case under load, 2026-10-01; the suite failed twice on the 30 s limit after
   passing three times earlier the same day). The test allowance is 90 s now;
