@@ -19,7 +19,8 @@
  * word the same fact differently.
  */
 import {
-  ArrowLeft, CalendarDays, ClipboardList, ExternalLink, Timer, UserRound,
+  AlertTriangle, ArrowLeft, CalendarDays, ClipboardList, ExternalLink, ListChecks, MoreHorizontal,
+  Settings2, Timer, UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,6 +64,9 @@ export function ClientFileHeader({
   onAssigneeChange,
   onDueChange,
   onDueClear,
+  nextAction = null,
+  onReportBlocker,
+  onManage,
 }: {
   client: FulfillmentClient;
   current: DepartmentStatus | null;
@@ -76,6 +80,11 @@ export function ClientFileHeader({
   onAssigneeChange: (department: CreditOpsDepartment, assigneeId: string | null) => Promise<void>;
   onDueChange: (department: CreditOpsDepartment, date: string, reason: string) => Promise<void>;
   onDueClear: (department: CreditOpsDepartment) => Promise<void>;
+  /** The file's next action, said once at the top (Dee, 2026-10-03). */
+  nextAction?: string | null;
+  onReportBlocker?: () => void;
+  /** Present only for someone who may manage the client. */
+  onManage?: () => void;
 }) {
   const due = (client as FulfillmentClient & { dueAt?: string | null }).dueAt ?? null;
   const sla = readSla(client.slaHoursRemaining);
@@ -112,21 +121,40 @@ export function ClientFileHeader({
           </p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        {/* Complete Work · Report Blocker · More — Dee's three, and only the
+            ones this person may use (view mode shows More alone). */}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           {canWork && (
             <Button size="sm" onClick={onCompleteWork}>
               Complete Work
             </Button>
           )}
-          {/* A file worth two screens is a file worth two windows — an agent
-              comparing a report against the dispute needs both at once. */}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => window.open(`/app/creditops?client=${client.id}`, "_blank", "noopener")}
-          >
-            Open in new tab <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-          </Button>
+          {canWork && current && onReportBlocker && (
+            <Button size="sm" variant="outline" onClick={onReportBlocker}>
+              <AlertTriangle className="mr-1.5 h-3.5 w-3.5" /> Report blocker
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" aria-label="More actions">
+                More <MoreHorizontal className="ml-1.5 h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel className="text-xs">{client.name}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {/* A file worth two screens is a file worth two windows — an agent
+                  comparing a report against the dispute needs both at once. */}
+              <DropdownMenuItem onSelect={() => window.open(`/app/creditops?client=${client.id}`, "_blank", "noopener")}>
+                <ExternalLink className="mr-2 h-3.5 w-3.5" /> Open in new tab
+              </DropdownMenuItem>
+              {onManage && (
+                <DropdownMenuItem onSelect={onManage}>
+                  <Settings2 className="mr-2 h-3.5 w-3.5" /> Manage this client
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -213,6 +241,18 @@ export function ClientFileHeader({
           <p className={cn("text-sm font-semibold", SLA_TONE_CLASS[sla.tone])}>{sla.label}</p>
         </FactCard>
       </div>
+
+      {/* "What do I need to do?" — answered in the header, not three scrolls
+          down. Absent when nobody has written one, rather than a blank. */}
+      {nextAction?.trim() ? (
+        <div className="mx-4 mb-3 flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2">
+          <ListChecks className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Next action</p>
+            <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-foreground">{nextAction}</p>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 }

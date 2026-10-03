@@ -150,16 +150,17 @@ console.log("\nRouting is frozen at submission, not recomputed");
 console.log("\nThe team rollup is the lead's, and management's");
 {
   const lead = one(`select distinct tm.user_id from team_memberships tm
-      join teams t on t.id = tm.team_id and t.archived_at is null
+      join teams t on t.id = tm.team_id and t.archived_at is null and not t.is_fixture
+      join profiles p on p.id = tm.user_id and coalesce(p.is_fixture, false) = false
      where tm.is_lead
        and exists (select 1 from team_memberships o where o.team_id = tm.team_id and o.user_id <> tm.user_id)
-     limit 1`)?.user_id;
+     order by tm.user_id limit 1`)?.user_id;
   if (!lead) console.log("  SKIPPED — no team with a lead and at least one other member");
   else {
     const mine = as(lead, "", `select count(*)::int as n from public.eod_team_rollup('${lead}', current_date);`);
     check("a lead can roll up their own team", mine.ok && mine.rows[0].n > 0, true);
 
-    const owner = one("select user_id from agency_memberships where is_owner and status='active' limit 1").user_id;
+    const owner = one("select m.user_id from agency_memberships m join profiles p on p.id = m.user_id and coalesce(p.is_fixture, false) = false where m.is_owner and m.status = 'active' order by m.user_id limit 1").user_id;
     const mgmt = as(owner, "", `select count(*)::int as n from public.eod_team_rollup('${lead}', current_date);`);
     check("management can read it too", mgmt.ok && mgmt.rows[0].n > 0, true);
 
@@ -315,7 +316,7 @@ console.log("\nSubmitting tells the right people, and claims nothing extra");
 
 console.log("\nEach person sees the right people, and no more");
 {
-  const owner = one("select user_id from agency_memberships where is_owner and status='active' limit 1").user_id;
+  const owner = one("select m.user_id from agency_memberships m join profiles p on p.id = m.user_id and coalesce(p.is_fixture, false) = false where m.is_owner and m.status = 'active' order by m.user_id limit 1").user_id;
   const agent = one(`select m.user_id from agency_memberships m
       join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
       cross join lateral public.eod_route_for(m.user_id) r
@@ -357,7 +358,7 @@ console.log("\nAn EOD is private to its author and their management");
      RequireAgencyStaff, not on a capability. That is only safe because the
      DATABASE refuses, which is the layer that has to be right (rule 1: never
      rely on hidden UI). These assert the refusal, not the hiding. */
-  const owner = one("select user_id from agency_memberships where is_owner and status='active' limit 1").user_id;
+  const owner = one("select m.user_id from agency_memberships m join profiles p on p.id = m.user_id and coalesce(p.is_fixture, false) = false where m.is_owner and m.status = 'active' order by m.user_id limit 1").user_id;
   const agent = one(`select m.user_id from agency_memberships m
       join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
      where m.role = 'agency_user' and m.status = 'active'
@@ -418,7 +419,7 @@ console.log("\nA failed email is reported, and retrying it is a permission");
     check("…but not the provider's error, which they cannot act on", author?.last_error, null);
     check("…and may try again", author?.may_retry, true);
 
-    const owner = one("select user_id from agency_memberships where is_owner and status='active' limit 1").user_id;
+    const owner = one("select m.user_id from agency_memberships m join profiles p on p.id = m.user_id and coalesce(p.is_fixture, false) = false where m.is_owner and m.status = 'active' order by m.user_id limit 1").user_id;
     check("management DOES see the provider's error", status(owner)?.last_error, "550 mailbox unavailable");
 
     if (stranger) {
@@ -460,33 +461,45 @@ console.log("\nA lead's email carries their team; everybody else's does not");
      limit 1`)?.user_id;
 
   const payload = (person, day) => {
+    /* Filed in the person's own session, as the app files it: the report is
+       built under the filer's EOD visibility, so a filing with no session
+       would (correctly) be refused. */
     const r = shaped(`
+      select set_config('request.jwt.claims', '{"sub":"${person}","role":"authenticated"}', true);
       insert into eod_submissions (agency_id, employee_id, work_date, state, submitted_at, submitted_by)
         values ('${agency}', '${person}', current_date - ${day}, 'submitted', now(), '${person}');`,
-      `select o.payload -> 'team' as team from eod_email_outbox o
+      /* Since the EOD document model (2026-09-29/30) the email carries the
+         SAME stored report the lead filed — {documents:[…]} built once by
+         eod_report() — not a separately assembled "team" section. Older
+         rows hold one bare document; every reader normalises, so does this. */
+      `select case when o.payload -> 'report' ? 'documents' then o.payload -> 'report' -> 'documents'
+                   when o.payload -> 'report' is null or jsonb_typeof(o.payload -> 'report') = 'null' then null
+                   else jsonb_build_array(o.payload -> 'report') end as docs
+         from eod_email_outbox o
          join eod_submissions e on e.id = o.eod_id
         where e.employee_id = '${person}' and e.work_date = current_date - ${day};`);
-    return r.ok ? r.rows[0]?.team : { error: r.message };
+    return r.ok ? (r.rows[0]?.docs ?? null) : { error: r.message };
   };
 
   if (lead) {
-    const t = payload(lead, 70);
-    check("a lead's email carries a team section", t !== null && t !== undefined, true);
-    check("…naming the people on it", Array.isArray(t?.people) && t.people.length > 0, true);
+    const docs = payload(lead, 70);
+    const first = Array.isArray(docs) ? docs[0] : null;
+    check("a lead's email carries their report document", Array.isArray(docs) && docs.length > 0, true);
+    check("…naming the people on it", Array.isArray(first?.rows) && first.rows.length > 0, true);
     /* Dee asked for this as its own section so a lead reading on a phone does
        not have to scan every line to find who is stuck. */
-    check("…and a separate attention list", Array.isArray(t?.attention), true);
+    check("…and a separate attention list", Array.isArray(first?.attention), true);
   }
   if (plain) {
-    /* An "your team" section reading "0 members" on an agent's email is a
-       question about why it is there. */
-    check("somebody who leads nobody gets no team section at all", payload(plain, 71), null);
+    /* A report section reading "0 members" on an agent's email is a question
+       about why it is there. */
+    check("somebody who leads nobody gets no report section at all", payload(plain, 71), null);
   }
 }
 
 console.log("\nManagement rolls the organisation up without joining a single team");
 {
-  const owner = one("select user_id from agency_memberships where is_owner and status='active' limit 1").user_id;
+  const owner = one("select m.user_id from agency_memberships m join profiles p on p.id = m.user_id and coalesce(p.is_fixture, false) = false where m.is_owner and m.status = 'active' order by m.user_id limit 1").user_id;
   const agent = one(`select m.user_id from agency_memberships m
       join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
      where m.role = 'agency_user' and m.status = 'active'
@@ -494,34 +507,44 @@ console.log("\nManagement rolls the organisation up without joining a single tea
                         where amp.membership_id = m.id and amp.key = 'ops.manage' and amp.allowed)
      limit 1`)?.user_id;
 
-  const org = as(owner, "", `select team_name, lead_name, members from public.eod_org_rollup(current_date);`);
-  check("management sees every team", org.ok && org.rows.length > 0, true);
+  /* Since 2026-09-30 the organisation's day is eod_report('agency', …) — the
+     one EOD calculation at its top level, its divisions embedded as children
+     — and the separate per-team rollup (eod_org_rollup) is retired. */
+  const org = as(owner, "", `select public.eod_report('agency', '${AGENCY}', current_date) as doc;`);
+  const doc = org.ok ? org.rows[0]?.doc : null;
+  check("management reads the organisation's document", Array.isArray(doc?.children) && doc.children.length > 0, true);
 
   /* The constraint Dee stated outright: no fake membership. Whoever reads this
      must not have had to be added to a team to do it. */
   const onTeams = one(`select count(*)::int as n from team_memberships tm
       join teams t on t.id = tm.team_id and t.archived_at is null
      where tm.user_id = '${owner}'`).n;
-  check("…without being a member of every team", onTeams < org.rows.length, true);
+  const liveTeams = one(`select count(*)::int as n from teams t where t.archived_at is null and not t.is_fixture`).n;
+  check("…without being a member of every team", onTeams < liveTeams, true);
 
-  /* Everybody is accounted for, including people on no team — leaving them out
-     would make the organisation's totals quietly wrong. */
-  const staff = one(`select count(*)::int as n from agency_memberships m
-      join profiles p on p.id = m.user_id and coalesce(p.is_fixture,false) = false
-     where m.status = 'active'`).n;
-  const counted = org.ok ? org.rows.reduce((t, r) => t + Number(r.members), 0) : 0;
-  check("…and nobody is missing from the rollup", counted >= staff, true);
+  /* Everybody the report measures is counted: exactly the active, real, non-lead
+     members of live teams — the scope eod_report defines, read independently. */
+  const measured = one(`select count(distinct tm.user_id)::int as n
+      from team_memberships tm
+      join teams t on t.id = tm.team_id and t.archived_at is null and not t.is_fixture
+      join profiles p on p.id = tm.user_id and coalesce(p.is_fixture, false) = false
+      join agency_memberships m on m.user_id = tm.user_id and m.status = 'active'
+     where not tm.is_lead and t.agency_id = '${AGENCY}'`).n;
+  check("…and nobody it measures is missing", Number(doc?.totals?.members ?? -1), measured);
 
   if (agent) {
-    const theirs = as(agent, "", "select count(*)::int as n from public.eod_org_rollup(current_date);");
-    check("an ordinary agent gets no organisation rollup at all",
-      theirs.ok ? theirs.rows[0].n : "error", 0);
+    const theirs = as(agent, "", `select public.eod_report('agency', '${AGENCY}', current_date) as doc;`);
+    check("an ordinary agent cannot read the organisation's document", theirs.ok, false);
   }
 
-  /* A team with no lead is a real state and must be reported as one rather than
-     omitted — an unled team's reports route nowhere. */
-  check("a team with no lead still appears, with its lead null",
-    org.ok && org.rows.some((r) => r.lead_name === null), true);
+  /* A team with no lead is a real state: its report must still build, with
+     its lead null, rather than fail or vanish. */
+  const unled = one(`select t.id from teams t where t.archived_at is null and not t.is_fixture
+      and not exists (select 1 from team_memberships tm where tm.team_id = t.id and tm.is_lead) limit 1`)?.id;
+  if (unled) {
+    const r = as(owner, "", `select public.eod_report('team', '${unled}', current_date) as doc;`);
+    check("a team with no lead still reports, with its lead null", r.ok && r.rows[0]?.doc?.lead?.id === null, true);
+  }
 }
 
 console.log("\nThe figures come from the frozen snapshot");

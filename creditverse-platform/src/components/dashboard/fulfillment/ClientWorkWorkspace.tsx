@@ -28,7 +28,9 @@
  */
 
 import { useMemo, useState } from "react";
-import { ChevronRight, X } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
@@ -81,7 +83,9 @@ function TabBar({ tab, onPick, clientId }: {
        opened on the same person and the same editable details, and Credit
        carried the identity panel anyway. Dee, 2026-09-24: combine them. */
     { id: "info", label: "Client info", icon: ShieldCheck },
-    { id: "files", label: "Files", icon: FolderOpen, count: files.data },
+    /* "Documents" — Dee's name for the one canonical place for IDs, reports,
+       POAs, evidence, mailing proof, ClickUp attachments and uploads. */
+    { id: "files", label: "Documents", icon: FolderOpen, count: files.data },
     { id: "history", label: "History", icon: MessageSquare, count: posts.data?.length },
   ];
   return (
@@ -140,6 +144,9 @@ export function ClientWorkWorkspace({
   const perms = useAgencyPermissions();
   const [completing, setCompleting] = useState(false);
   const [tab, setTab] = useState<TabId>("work");
+  const [reportingBlocker, setReportingBlocker] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   /* The next file this person should work — most urgent first, from the same
      view My Work reads, so the button and the queue cannot disagree about
@@ -237,6 +244,9 @@ export function ClientWorkWorkspace({
           onBack={onBack}
           backLabel={backLabel}
           onCompleteWork={() => setCompleting(true)}
+          nextAction={(client as { nextAction?: string | null }).nextAction ?? null}
+          onReportBlocker={() => { setTab("work"); setReportingBlocker(true); }}
+          onManage={canManage ? () => { setTab("work"); setManageOpen(true); } : undefined}
           onStatusChange={onStatusChange}
           onAssigneeChange={onAssigneeChange}
           onDueChange={onDueChange}
@@ -255,7 +265,7 @@ export function ClientWorkWorkspace({
                     the history — Dee, 2026-09-24. Shut by default, and each
                     control inside keeps its own capability check. */}
                 {canManage && (
-                  <FoldedSection label="Manage this client"
+                  <FoldedSection label="Manage this client" open={manageOpen} onOpenChange={setManageOpen}
                     hint="Lifecycle, status, assignment and dates · recorded with your name">
                     <div className="space-y-3">
                       <ClientStatusControl client={client} />
@@ -271,6 +281,8 @@ export function ClientWorkWorkspace({
                   current={current}
                   nextAction={(client as { nextAction?: string | null }).nextAction ?? null}
                   onCompleteWork={() => setCompleting(true)}
+                  reportingBlocker={reportingBlocker}
+                  onReportingBlockerChange={setReportingBlocker}
                 />
 
                 {/* Several departments can hold one file at once, and by Dee's
@@ -302,41 +314,28 @@ export function ClientWorkWorkspace({
             {tab === "history" && <ClientHistoryTab clientId={clientId} />}
         </div>
 
-        {/* ── COMPLETE WORK IS DOCKED, NOT APPENDED ─────────────────────
-            Dee, 2026-09-24: "This complete work button doesn't have any
-            function at all." It had one. It rendered the form at the BOTTOM
-            of a page that is now several screens long, so pressing the button
-            opened something nobody could see — which is indistinguishable
-            from a dead control, and worse, because you press it twice.
-
-            Her mockup docks it to the bottom right, over the work, and that
-            is what this is: fixed, above everything, with its own scroll for
-            a long checklist. */}
-        {completing && (
-          <div
-            role="dialog"
-            aria-modal="false"
-            aria-label={`Complete work for ${client.name}`}
-            className="fixed bottom-4 right-4 z-40 flex max-h-[85vh] w-[min(26rem,calc(100vw-2rem))] flex-col rounded-2xl border border-border bg-card shadow-2xl"
+        {/* ── COMPLETE WORK: A DRAWER, OR A FULL-SCREEN SHEET ON A PHONE ──
+            Dee, 2026-10-03: "Complete Work should open a drawer on desktop and
+            full-screen sheet on mobile. Handoff belongs inside Complete Work."
+            It was a small box docked bottom-right (2026-09-24), which on a
+            phone covered the page without owning it. The form is unchanged —
+            the same CompleteWorkSection, handoffs included. */}
+        <Sheet open={completing} onOpenChange={setCompleting}>
+          <SheetContent
+            side={isMobile ? "bottom" : "right"}
+            className={cn(
+              "flex flex-col gap-0 p-0",
+              isMobile ? "h-[100dvh] max-h-[100dvh] rounded-none" : "w-full sm:max-w-md",
+            )}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
-              <div className="min-w-0">
-                <h2 className="text-sm font-bold text-foreground">Complete work</h2>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {client.name}
-                  {current ? ` · ${current.department}` : ""}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCompleting(false)}
-                aria-label="Close"
-                className="shrink-0 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <SheetHeader className="border-b border-border px-4 py-3 pr-12 text-left">
+              <SheetTitle className="text-sm font-bold">Complete work</SheetTitle>
+              <SheetDescription className="truncate text-[11px]">
+                {client.name}
+                {current ? ` · ${current.department}` : ""}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <CompleteWorkSection
                 clientId={clientId}
                 clientName={client.name}
@@ -345,10 +344,9 @@ export function ClientWorkWorkspace({
                 submitLabel={next ? "Complete & next client" : "Complete Work"}
                 onCompleted={() => {
                   setCompleting(false);
-                  /* Straight to the next file. Dee's mockup ends the panel
-                     with this, and the point is that an agent working a queue
-                     never returns to the list. Where there is no next one,
-                     the panel just closes on a finished file. */
+                  /* Straight to the next file: an agent working a queue never
+                     returns to the list. Where there is no next one, the
+                     sheet just closes on a finished file. */
                   if (next) onOpenClient?.(next.clientId);
                 }}
               />
@@ -359,8 +357,8 @@ export function ClientWorkWorkspace({
                 </p>
               )}
             </div>
-          </div>
-        )}
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Sticky so the conversation stays beside the work rather than
@@ -377,10 +375,13 @@ export function ClientWorkWorkspace({
  * are on, and you cannot scroll past it to see what else exists. A folded
  * section is in the page, in order, and says what is inside it.
  */
-function FoldedSection({ label, hint, children }: {
+function FoldedSection({ label, hint, children, open: openProp, onOpenChange }: {
   label: string; hint: string; children: React.ReactNode;
+  open?: boolean; onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [openLocal, setOpenLocal] = useState(false);
+  const open = openProp ?? openLocal;
+  const setOpen = (v: boolean) => { setOpenLocal(v); onOpenChange?.(v); };
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

@@ -20,6 +20,7 @@
  * them who to ask.
  */
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, Loader2, Plus, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
@@ -30,7 +31,7 @@ import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import type { CreditOpsDepartment } from "@/lib/fulfillment/creditops-access";
 import { ClientWorkflowActions } from "@/components/dashboard/fulfillment/ClientWorkflowActions";
 import {
-  reportWorkBlocker, useChecklistActions, useWorkChecklist,
+  CUSTOM_STEP_SORT, reportWorkBlocker, useChecklistActions, useWorkBlocker, useWorkChecklist,
 } from "@/lib/data/use-client-work-detail";
 import type { DepartmentStatus } from "@/lib/fulfillment/creditops-store-types";
 import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
@@ -72,15 +73,20 @@ export function ClientWorkTab({
   client,
   clientId,
   current,
-  nextAction,
   onCompleteWork,
+  reportingBlocker = false,
+  onReportingBlockerChange,
 }: {
   client: FulfillmentClient;
   clientId: string;
   /** The department row currently holding this file, or null. */
   current: DepartmentStatus | null;
-  nextAction: string | null;
+  /** Kept for callers; the header shows it now. */
+  nextAction?: string | null;
   onCompleteWork: () => void;
+  /** Opened from the header's Report Blocker as well as from here. */
+  reportingBlocker?: boolean;
+  onReportingBlockerChange?: (open: boolean) => void;
 }) {
   const access = useCreditOpsAccess();
   const { toast } = useToast();
@@ -112,14 +118,10 @@ export function ClientWorkTab({
         <p className="text-sm font-bold text-foreground">
           {department} · {current.status}
         </p>
-        {nextAction?.trim() ? (
-          <div className="mt-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Next action</p>
-            <p className="mt-0.5 text-xs text-foreground">{nextAction}</p>
-          </div>
-        ) : null}
+        {/* Next action is said once, in the header (2026-10-03). */}
 
-        <Blocker clientId={clientId} department={department} canWork={canWork} />
+        <Blocker clientId={clientId} department={department} canWork={canWork}
+          entering={reportingBlocker} onEnteringChange={onReportingBlockerChange} />
 
         {canWork ? (
           <CompleteButton clientId={clientId} department={department} onCompleteWork={onCompleteWork} />
@@ -153,19 +155,28 @@ export function ClientWorkTab({
  * permanent section. If everything is normal, a small indicator is enough."
  */
 function Blocker({
-  clientId, department, canWork,
-}: { clientId: string; department: CreditOpsDepartment; canWork: boolean }) {
+  clientId, department, canWork, entering: enteringProp, onEnteringChange,
+}: {
+  clientId: string; department: CreditOpsDepartment; canWork: boolean;
+  entering?: boolean; onEnteringChange?: (open: boolean) => void;
+}) {
   const { toast } = useToast();
+  const qc = useQueryClient();
+  /* What is STORED on the department row — never a screen-local guess, so a
+     reload or another person sees the same blocker (2026-10-03). */
+  const stored = useWorkBlocker(clientId, department);
   const [reason, setReason] = useState("");
-  const [entering, setEntering] = useState(false);
+  const [enteringLocal, setEnteringLocal] = useState(false);
+  const entering = enteringProp ?? enteringLocal;
+  const setEntering = (open: boolean) => { setEnteringLocal(open); onEnteringChange?.(open); };
   const [busy, setBusy] = useState(false);
-  const [blocked, setBlocked] = useState<string | null>(null);
+  const blocked = stored.data?.reason ?? null;
 
   const save = async (next: string | null) => {
     setBusy(true);
     try {
       await reportWorkBlocker(clientId, department, next);
-      setBlocked(next);
+      await qc.invalidateQueries({ queryKey: ["creditops", "blocker", clientId, department] });
       setEntering(false);
       setReason("");
       toast({ title: next ? "Blocker reported" : "Blocker cleared" });
@@ -176,13 +187,21 @@ function Blocker({
     }
   };
 
+  if (stored.isError) {
+    return (
+      <p className="mt-3 text-[11px] text-muted-foreground">
+        Whether this file is blocked could not be loaded. Refresh before assuming it is workable.
+      </p>
+    );
+  }
+
   if (blocked) {
     return (
       <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-900">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-900 dark:text-amber-200">
           <AlertTriangle className="h-3.5 w-3.5" /> Blocked
         </p>
-        <p className="mt-0.5 text-xs text-foreground">{blocked}</p>
+        <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-foreground">{blocked}</p>
         {canWork && (
           <Button size="sm" variant="outline" className="mt-2" disabled={busy} onClick={() => void save(null)}>
             Clear blocker
@@ -192,7 +211,7 @@ function Blocker({
     );
   }
 
-  if (entering) {
+  if (entering && canWork) {
     return (
       <div className="mt-3 flex gap-2">
         <Input
@@ -201,12 +220,12 @@ function Blocker({
           onChange={(e) => setReason(e.target.value)}
           placeholder="What is stopping this file?"
           aria-label="Reason for the blocker"
-          className="h-8 text-xs"
+          className="h-9 text-xs"
         />
         <Button size="sm" disabled={!reason.trim() || busy} onClick={() => void save(reason.trim())}>
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Report"}
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => { setEntering(false); setReason(""); }}>
+        <Button size="sm" variant="ghost" aria-label="Cancel" onClick={() => { setEntering(false); setReason(""); }}>
           <X className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -216,16 +235,7 @@ function Blocker({
   return (
     <p className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
       <ShieldCheck className="h-3.5 w-3.5 text-status-success" />
-      Workable
-      {canWork && (
-        <button
-          type="button"
-          onClick={() => setEntering(true)}
-          className="font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Report blocker
-        </button>
-      )}
+      {stored.isPending ? "Checking…" : "Workable"}
     </p>
   );
 }
@@ -254,17 +264,18 @@ function Checklist({
       </ContentCard>
     );
   }
-  if (rows.length === 0 && !canWork) return null;
+  /* Only when a checklist actually exists (Dee, 2026-10-03). A worker can
+     still add a step for unusual work — from a small link, not an empty box. */
+  if (rows.length === 0) {
+    if (!canWork) return null;
+    return <AddStepLink onAdd={(label) => actions.add.mutate({ label, sort: CUSTOM_STEP_SORT })} />;
+  }
 
   const done = rows.filter((r) => r.done).length;
 
   return (
-    <ContentCard title={rows.length > 0 ? `Checklist (${done}/${rows.length})` : "Checklist"}>
-      {rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          No standard steps are configured for {department} yet.
-        </p>
-      ) : (
+    <ContentCard title={`Checklist (${done}/${rows.length})`}>
+      {(
         <ul className="space-y-1">
           {rows.map((r) => (
             <li key={r.id} className="group flex items-center gap-2">
@@ -279,7 +290,7 @@ function Checklist({
               <span className={cn("flex-1 text-xs", r.done ? "text-muted-foreground line-through" : "text-foreground")}>
                 {r.label}
               </span>
-              {canWork && (
+              {canWork && r.isCustom && (
                 <button
                   type="button"
                   aria-label={`Remove ${r.label}`}
@@ -319,5 +330,32 @@ function Checklist({
         </div>
       )}
     </ContentCard>
+  );
+}
+
+/** "+ Add a step" for unusual work, when the file has no checklist. */
+function AddStepLink({ onAdd }: { onAdd: (label: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState("");
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 text-[11px] font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Plus className="h-3 w-3" /> Add a step (unusual work only)
+      </button>
+    );
+  }
+  const submit = () => { if (label.trim()) { onAdd(label.trim()); setLabel(""); setOpen(false); } };
+  return (
+    <div className="flex gap-2">
+      <Input autoFocus value={label} onChange={(e) => setLabel(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") setOpen(false); }}
+        placeholder="What needs doing?" aria-label="Add a custom step" className="h-9 text-xs" />
+      <Button size="sm" variant="outline" disabled={!label.trim()} onClick={submit}><Plus className="h-3.5 w-3.5" /></Button>
+      <Button size="sm" variant="ghost" aria-label="Cancel" onClick={() => setOpen(false)}><X className="h-3.5 w-3.5" /></Button>
+    </div>
   );
 }

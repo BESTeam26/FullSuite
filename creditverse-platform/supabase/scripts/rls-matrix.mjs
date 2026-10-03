@@ -340,7 +340,12 @@ const T = q(`select
   (select count(*) from public.work_attention where division='creditops' or assigned_to=(select id from public.profiles where email='bes.manager@bes.test'))::int as attention_creditops,
   (select count(*) from public.work_items w where w.organization_id='dddddddd-0000-4000-8000-80ce8814eb05' and w.scope='ORGANIZATION')::int
    + (select count(*) from public.work_items w where w.scope='AGENCY' and w.division='bes_crm' and w.subject_organization_id='dddddddd-0000-4000-8000-80ce8814eb05')::int as lakeside_org_work,
-  (select count(*) from public.work_attention a join public.work_items w on w.id=a.id where w.organization_id='dddddddd-0000-4000-8000-80ce8814eb05' and w.scope='ORGANIZATION')::int as lakeside_org_attention,
+  /* The same two branches as lakeside_org_work: the organization's own items
+     AND the BES CRM work about it that it is entitled to read (rule 16b's
+     customer-visible branch). Counting only the first made this oracle
+     disagree with the work oracle above once that branch shipped. */
+  (select count(*) from public.work_attention a join public.work_items w on w.id=a.id where w.organization_id='dddddddd-0000-4000-8000-80ce8814eb05' and w.scope='ORGANIZATION')::int
+   + (select count(*) from public.work_attention a join public.work_items w on w.id=a.id where w.scope='AGENCY' and w.division='bes_crm' and w.subject_organization_id='dddddddd-0000-4000-8000-80ce8814eb05')::int as lakeside_org_attention,
   (select count(*) from public.work_items w where w.organization_id=(select id from public.organizations where name='[TEST] Northgate Credit Co') and w.scope='ORGANIZATION')::int as northgate_org_work,
   (select count(*) from public.work_attention a join public.work_items w on w.id=a.id where w.organization_id=(select id from public.organizations where name='[TEST] Northgate Credit Co') and w.scope='ORGANIZATION')::int as northgate_org_attention,
   (select id from public.fulfillment_clients where name='[TEST] Evan Ellis') as lakeside_client,
@@ -8486,6 +8491,24 @@ if (runs(78)) {
                          where c.is_fixture and not coalesce(p.is_fixture,false))
                      + (select count(*) from public.fulfillment_clients c join public.profiles p on p.id = c.assigned_agent_id
                          where c.is_fixture and not coalesce(p.is_fixture,false)))::int as rows`)[0].rows, 0],
+
+    /* THE CHECKLIST WORKS AND FOLLOWS WORK AUTHORITY (20261003008000). Its
+       policies used to compare a client with its own client_id column and
+       matched nothing; the table was granted for reading only. */
+    ["the checklist rules read the checklist row's own client",
+      () => q(`select bool_and(qual like '%client_work_checklist.client_id%' or with_check like '%client_work_checklist.client_id%')::text as rows
+                 from pg_policies where tablename = 'client_work_checklist'`)[0].rows, "true"],
+    ["a staff member who works no CreditOps queue cannot tick a step",
+      () => as78(PLAIN, `with u as (update public.client_work_checklist set done = not done
+                            where id = (select id from public.client_work_checklist limit 1) returning 1)
+                          select count(*)::int as rows from u`), 0],
+    ["…nor report a blocker on a department they do not work",
+      () => as78(PLAIN, `select public.report_work_blocker(
+                            (select client_id from public.client_department_statuses limit 1),
+                            (select department from public.client_department_statuses limit 1), 'probe')::text as rows`), "ERR 42501"],
+    ["signed-in users may write only the done box of a step",
+      () => q(`select string_agg(distinct column_name, ',' order by column_name) as rows from information_schema.column_privileges
+                where table_name = 'client_work_checklist' and grantee = 'authenticated' and privilege_type = 'UPDATE'`)[0].rows, "done"],
 
     /* PARTNER NEXT STEP READS THE CURRENT STATUS NAMES (20261003006000). */
     ["every current closed department status reads as completed or closed to a partner",

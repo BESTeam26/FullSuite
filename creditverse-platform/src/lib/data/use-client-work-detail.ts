@@ -24,6 +24,14 @@ export interface ChecklistItem {
   done: boolean;
   doneAt: string | null;
   sort: number;
+  /** Added by hand for unusual work — the only steps that may be removed. */
+  isCustom: boolean;
+}
+
+/** A department's work, when somebody has said it cannot move. */
+export interface WorkBlocker {
+  reason: string;
+  since: string | null;
 }
 
 /** Steps that came from the template sort below 1000; custom ones above. */
@@ -61,7 +69,7 @@ export function useWorkChecklist(clientId: string | null, department: Department
       const sb = requireSupabase();
       const read = () => sb
         .from("client_work_checklist")
-        .select("id, label, done, done_at, sort")
+        .select("id, label, done, done_at, sort, is_custom")
         .eq("client_id", clientId as string)
         .eq("department", department as Department)
         .order("sort");
@@ -85,6 +93,7 @@ export function useWorkChecklist(clientId: string | null, department: Department
         done: r.done as boolean,
         doneAt: (r.done_at as string) ?? null,
         sort: r.sort as number,
+        isCustom: r.is_custom === true,
       }));
     },
   });
@@ -126,6 +135,33 @@ export function useChecklistActions(clientId: string, department: Department) {
       onSuccess: refresh,
     }),
   };
+}
+
+/**
+ * The blocker stored on a department's work, or null when it is workable.
+ *
+ * Read from the department row itself (client_department_statuses), so a
+ * reload, another agent, or a manager sees exactly what was reported — the
+ * screen used to hold it in memory and said "Workable" after a refresh.
+ */
+export function useWorkBlocker(clientId: string | null, department: Department | null) {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ["creditops", "blocker", clientId, department],
+    enabled: live(auth) && !!clientId && !!department,
+    staleTime: 15_000,
+    queryFn: async (): Promise<WorkBlocker | null> => {
+      const { data, error } = await requireSupabase()
+        .from("client_department_statuses")
+        .select("blocked_reason, blocked_at")
+        .eq("client_id", clientId as string)
+        .eq("department", department as Department)
+        .maybeSingle();
+      if (error) throw error;
+      const row = data as { blocked_reason: string | null; blocked_at: string | null } | null;
+      return row?.blocked_reason?.trim() ? { reason: row.blocked_reason, since: row.blocked_at } : null;
+    },
+  });
 }
 
 /** Report a blocker, or clear one by passing null. */
