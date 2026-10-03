@@ -126,24 +126,19 @@ export function mapClientRow(row: ClientRow): FulfillmentClient {
  * correct until the day it quietly is not (the same failure as P-007, where
  * the row cap made every attendance score read a clean 15).
  *
- * `pageAll` reads until a page comes back short and refuses rather than
- * looping forever. It costs one extra request per additional thousand rows,
- * which is the right trade against showing somebody a partial client list.
+ * It was then read with `pageAll` (page until short). Since 2026-10-03 it is
+ * one jsonb value from `creditops_client_list()`, which the row cap does not
+ * touch — still never a partial list, and one round trip instead of two.
  */
 export async function fetchFulfillmentClients(): Promise<FulfillmentClient[]> {
-  const sb = requireSupabase();
-  const rows = await pageAll<ClientRow>(async (offset, limit) => {
-    const { data, error } = await sb
-      .from("fulfillment_clients")
-      .select(CLIENT_SELECT)
-      .is("archived_at", null)
-      .eq("is_fixture", false)
-      .order("name")
-      .range(offset, offset + limit - 1);
-    if (error) throw error;
-    return (data ?? []) as unknown as ClientRow[];
-  });
-  return rows.map(mapClientRow);
+  /* One request, whatever the size of the book (2026-10-03). The row cap is
+     why this used to page: two round trips (~1 s each) before a full-scope
+     viewer saw a row. creditops_client_list() returns the same rows under
+     the same row rules as ONE jsonb value — the cap does not apply to it, so
+     nothing can be silently cut — with only the columns mapClientRow reads. */
+  const { data, error } = await requireSupabase().rpc("creditops_client_list" as never);
+  if (error) throw error;
+  return ((data ?? []) as unknown as ClientRow[]).map(mapClientRow);
 }
 
 /** Department statuses for ONE client — loaded when a file is opened, not with the list. */
@@ -209,8 +204,9 @@ export async function fetchDepartmentStatusesForClients(
 
 /**
  * The department rows of a whole scope — one partner, or everything the
- * caller may see — in ONE statement (`creditops_department_rows`), paged by
- * range. The Main Client List needs every row in its scope for its columns
+ * caller may see — in ONE statement (`creditops_department_rows`, returned
+ * whole by `creditops_department_rows_all`). The Main Client List needs
+ * every row in its scope for its columns
  * and filters; asking by 200 ids at a time was five requests for Vanquish
  * Ventures, each rebuilding the policy sets (2026-09-30). The rows are the
  * same rows under the same policies; only the number of statements changed.
@@ -219,13 +215,12 @@ export async function fetchDepartmentStatusesForScope(
   groupId: string | null,
 ): Promise<Record<string, DepartmentStatus[]>> {
   const sb = requireSupabase();
-  const rows = await pageAll<Record<string, unknown>>(async (offset, limit) => {
-    const { data, error } = await sb
-      .rpc("creditops_department_rows", { p_group: groupId })
-      .range(offset, offset + limit - 1);
-    if (error) throw error;
-    return (data ?? []) as unknown as Record<string, unknown>[];
-  });
+  /* One request (2026-10-03): the same rows as creditops_department_rows,
+     as one jsonb value, so a full-scope viewer no longer waits for a second
+     round of pages. */
+  const { data, error } = await sb.rpc("creditops_department_rows_all" as never, { p_group: groupId } as never);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as Record<string, unknown>[];
   const out: Record<string, DepartmentStatus[]> = {};
   for (const d of rows as unknown as {
     client_id: string; department: string; status: string; assignee_id: string | null;

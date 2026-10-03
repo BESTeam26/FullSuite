@@ -45,7 +45,10 @@ export function FundingAddClientModal({
 }: FundingAddClientModalProps) {
   /* The real roster, not a list of names in the source. "Unassigned" first so
      the honest choice is the default and nobody has to pick a person to save. */
-  const roster = useWorkforce();
+  /* Only while the dialog is open: it is mounted with its list page, and
+     the roster (members, teams, this week's time) was three requests on
+     every CreditOps open for a dialog nobody had opened (rule 14). */
+  const roster = useWorkforce({ enabled: open });
   const assignees = [
     ...FUNDING_ELIGIBLE_ASSIGNEES,
     ...(roster.data?.people ?? []).map((x) => x.name).filter(Boolean),

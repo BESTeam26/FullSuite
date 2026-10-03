@@ -71,7 +71,10 @@ const PATHS = (fc, uid) => [
      database does not flap the gate, while 10× does fail it. */
   ["open CreditOps · partners",          250,  150, `select g.* from outsourcing_groups g where g.archived_at is null order by g.name`],
   ["open CreditOps · queue counts",      800,  300, `select * from public.creditops_queue_counts()`],
-  ["main client list (1,000 rows)",      500,  300, `select fc.*, o.name, g.name, p.full_name, p.email from fulfillment_clients fc left join organizations o on o.id=fc.organization_id left join outsourcing_groups g on g.id=fc.outsourcing_group_id left join profiles p on p.id=fc.assigned_agent_id where fc.archived_at is null and fc.is_fixture=false order by fc.name limit 1000`],
+  /* Since 20261003001000 the list and its department rows are one request
+     each — the whole book as one jsonb value, the shape the browser asks. */
+  ["main client list (whole, one request)", 700, 400, `select jsonb_array_length(public.creditops_client_list()) as n`],
+  ["department rows · all (one request)",  800,  500, `select jsonb_array_length(public.creditops_department_rows_all(null)) as n`],
   ["department rows · scope (Vanquish)",  800,  500, `select * from public.creditops_department_rows((select id from outsourcing_groups where name='Vanquish Ventures'))`],
   ["department statuses (200 ids)",      800,  500, `select s.*, p.full_name, p.email from client_department_statuses s left join profiles p on p.id=s.assignee_id where s.client_id in (select id from fulfillment_clients where archived_at is null and not is_fixture order by name limit 200) order by s.client_id`],
   ["open queue · Dispute",               800,  500, `select * from creditops_department_queue where department='Dispute' order by due_at nulls last limit 500`],
