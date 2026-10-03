@@ -230,7 +230,9 @@ export function ClientWorkWorkspace({
 
        Nothing here changes what may be seen. Every panel keeps the check it
        already had. */
-    <div className="grid gap-4 text-xs xl:grid-cols-[minmax(0,1fr)_360px]">
+    /* `minmax(0,1fr)` below xl: an implicit grid column sizes to its widest
+       content, which pushed the file 50px past a 390px phone (2026-10-03). */
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 text-xs xl:grid-cols-[minmax(0,1fr)_360px]">
       {/* 360, not 400: this now sits to the right of the CreditOps tree inside
           the shell, so the pane is ~290px narrower than the page it used to
           own. The rail gives up 40px so the work area keeps a usable width at

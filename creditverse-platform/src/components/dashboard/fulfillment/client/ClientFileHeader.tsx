@@ -123,7 +123,7 @@ export function ClientFileHeader({
 
         {/* Complete Work · Report Blocker · More — Dee's three, and only the
             ones this person may use (view mode shows More alone). */}
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:shrink-0">
           {canWork && (
             <Button size="sm" onClick={onCompleteWork}>
               Complete Work
