@@ -26,7 +26,8 @@ import { QUICK_VIEWS, matchesQuickView, quickViewCounts, type QuickViewId } from
 import { BulkActionBar } from "./BulkActionBar";
 import { CreditOpsCoverageStrip } from "./CreditOpsCoverageStrip";
 import { useCreditOpsCoverage, useUnstaffedDepartments, type CoverageState } from "@/lib/data/use-creditops-coverage";
-import type { CreditOpsPartner } from "@/lib/fulfillment/creditops-partners";
+import { CREDIT_OPS_PARTNERS, type CreditOpsPartner } from "@/lib/fulfillment/creditops-partners";
+import { usePartners } from "@/lib/data/use-partners";
 import { useAuth } from "@/lib/auth/auth-context";
 import { useCreditOpsAccess } from "@/lib/fulfillment/creditops-access";
 import {
@@ -71,6 +72,9 @@ export function FulfillmentClientsPanel({
   initialOpenClientId = null,
 }: FulfillmentClientsPanelProps) {
   const { displayName, ledTeamIds, teamIds, user } = useAuth();
+  /* Offered in Add Client when this panel has no partner in context (the
+     Main Client List). Same query key as the sidebar, so no extra request. */
+  const { partners: livePartners } = usePartners("creditOps", CREDIT_OPS_PARTNERS);
   /* Filters follow the person's legitimate scope (Dee, 2026-09-19): one
      authorized department needs no department filter; an unrestricted agent
      filter belongs to management and team leads, not to an agent. */
@@ -452,6 +456,15 @@ export function FulfillmentClientsPanel({
         open={showAddClient}
         onClose={() => setShowAddClient(false)}
         partner={partner}
+        partnerOptions={
+          partner
+            ? undefined
+            : livePartners.map((p) => ({
+                scopeId: p.scopeId,
+                name: p.name,
+                mode: p.mode,
+              }))
+        }
       />
     </div>
   );

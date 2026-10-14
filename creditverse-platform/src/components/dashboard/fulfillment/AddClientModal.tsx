@@ -36,12 +36,15 @@ interface AddClientModalProps {
   open: boolean;
   onClose: () => void;
   partner: CreditOpsPartner | undefined;
+  /** Offered when there is no partner in context (the Main Client List). */
+  partnerOptions?: { scopeId: string; name: string; mode: string }[];
 }
 
 export function AddClientModal({
   open,
   onClose,
   partner,
+  partnerOptions,
 }: AddClientModalProps) {
   /* The real roster, not a list of names in the source. "Unassigned" first so
      the honest choice is the default and nobody has to pick a person to save. */
@@ -68,8 +71,12 @@ export function AddClientModal({
       isNative={partner?.mode === "native_creditops"}
       nativeNotice="This Partner uses the native BES CreditOps SaaS connection. New clients are typically pulled from their workspace. Use this form only to add a manual record that is not in their system."
       partnerName={partner?.name}
+      partnerOptions={partnerOptions}
       statusOptions={STATUS_OPTIONS}
-      defaultStatus="Onboarding"
+      /* The first intake status in Dee's list. "Onboarding" was retired from
+         it on 2026-09-22 but stayed the default here, so the field showed
+         blank and a new client landed on a status the queues do not route. */
+      defaultStatus="New Client"
       assignees={assignees}
       onResetExtras={() => {
         setRound("Pre-Round");
@@ -125,20 +132,22 @@ export function AddClientModal({
           assignedAgent: common.assignee,
           teamId: teamId || undefined,
           openItems: 0,
-          autoSync: partner?.mode === "saas_pulled",
+          autoSync: scope.mode === "saas_pulled",
         };
+        /* `scope`, not `partner`: from the Main Client List there is no
+           partner in context, only the one chosen in the dialog. */
         return scope.mode === "outsourcing_only"
           ? {
               ...base,
               mode: "outsourcing_only" as const,
               outsourcingGroupId: scopeId,
-              outsourcingGroupName: partner.name,
+              outsourcingGroupName: scope.name,
             }
           : {
               ...base,
               mode: "saas_pulled" as const,
               organizationId: scopeId,
-              organizationName: partner?.name ?? "Managed Ops",
+              organizationName: scope.name,
             };
       }}
       onCheckConflict={(payload) => store.checkAddConflict(payload)}

@@ -6,6 +6,34 @@ They apply to every file in this repository, every phase of the build, and every
 When a rule conflicts with speed, the rule wins. When a rule is unclear in a
 specific case, stop and ask rather than choosing the permissive interpretation.
 
+## 0. Release approval: Dee approves every release (Dee, 2026-10-12 — permanent)
+
+**Nothing reaches production without Dee's explicit approval in the current
+session.** Production is any of:
+
+- `git push` to `main` — Vercel deploys every push to `bescrm.net` (`DEPLOYING.md`)
+- `npx supabase db push`, or any migration, SQL or data change against the live
+  project `wiojlgkzxlaiajwwrzuj` — there is no staging database
+- a Vercel deploy, an Edge Function deploy, or `supabase secrets set`
+- any write to live records (scripts, imports, backfills, repairs)
+
+Before asking, finish the work: build, test at the depth the risk requires,
+then tell Dee in plain language what changed, what was verified, what was not,
+and what goes live. Wait for a clear "go". One approval covers that release
+only — never the next one.
+
+Local work needs no approval: reading, editing, testing and committing on this
+machine. Batch related fixes into one release rather than asking per change.
+
+**Work only in the canonical project** (`BES-Platform/creditverse-platform`,
+branch `main`). Never from `FullSuite-OLD-sept22/` (a stale September copy), a
+`.claude/worktrees/` worktree, or a side branch.
+
+This **overrides** any instruction to deploy autonomously, including step
+"6. Deploy." in `creditverse-platform/PRODUCTION_OPERATING_MODE.md` §16 (and "test it,
+deploy it" in its §4), and §21a's "test, deploy". Those documents are kept verbatim; this rule governs
+when their deploy step happens.
+
 **Project layout:** the application lives in `creditverse-platform/`. The backend
 schema lives in `creditverse-platform/supabase/`. Current state and build order
 are recorded in `creditverse-platform/BUILD_STATUS.md`.
