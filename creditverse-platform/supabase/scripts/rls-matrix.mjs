@@ -7167,6 +7167,18 @@ if (runs(70)) {
         set local request.jwt.claims = '{"sub":"${FUND70}","role":"authenticated"}';
         select count(*)::int as rows from public.eod_submissions where employee_id = '${AGENT70}' and work_date = current_date`), 0],
 
+    /* 20261014003000: test work never reaches a real person's attention.
+       Run as a REAL active owner from the roster (the fixtures must keep
+       seeing fixture work, so a fixture subject could not prove this). The
+       fixture rows exist in the live table, so the count is honest: before
+       the view change it was 7. */
+    ["a real person's Attention Center holds no fixture work",
+      () => { const real = q(`select coalesce((select m.user_id::text from public.agency_memberships m join public.profiles p on p.id=m.user_id
+                 where m.status='active' and m.role='agency_admin' and not coalesce(p.is_fixture,false) order by m.is_owner desc nulls last limit 1), '') as rows`)[0].rows;
+              return real ? p70(real, `select count(*)::int as rows from public.work_attention a join public.work_items w on w.id = a.id where coalesce(w.is_fixture, false)`) : "no real owner"; }, 0],
+    ["…while a fixture owner still sees the fixture work the matrix relies on",
+      () => p70(U["bes.owner@bes.test"], `select (count(*) > 0)::text as rows from public.work_attention a join public.work_items w on w.id = a.id where coalesce(w.is_fixture, false)`), "true"],
+
     /* ── member documents (0273): HR paper is a capability, never staff status ── */
     ["adding a team member document needs the documents capability",
       () => p70(ADM70, `set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
