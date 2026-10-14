@@ -137,9 +137,9 @@ Last reconciled: 2026-10-01, after the full review (stale entries corrected agai
 **Open performance work (Dee, 2026-09-30, in this order — the latency suite
 guards every fixed path; the gate is not the only truth: a screen the team
 says feels slow is profiled as a real session):**
-1. Reporting pivots at 1–3 s (`report_pivot` over `report_facts_scoped`)
-2. BES CRM board around 1.1 s (`crm_project_board` per-project helpers)
-3. High-unread notification bell around 1.1 s (`can_view_activity` per row is the remainder)
+1. ~~Reporting pivots at 1–3 s~~ — FIXED 2026-10-03 (GO_LIVE_STATUS.md "Reporting for leads"; latency suite: pivot 119–124 ms)
+2. BES CRM board around 1.1 s (`crm_project_board` per-project helpers) — latency suite 2026-10-14: 15–16 ms for the probed accounts; re-measure on a project-heavy account before calling it done
+3. ~~High-unread notification bell around 1.1 s~~ — FIXED 2026-10-02 (GO_LIVE_STATUS.md "the notification bell poll"; suite: 8–10 ms)
 4. Any real-world path the team reports as slow even if the synthetic gate still passes
 
 1. ~~**Communication mobile**~~ — BUILT and deployed (P-046). Awaiting Dee's

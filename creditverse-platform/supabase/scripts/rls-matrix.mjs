@@ -7147,6 +7147,26 @@ if (runs(70)) {
         select (work_date = (now() at time zone 'America/New_York')::date)::text as rows
           from public.eod_submissions where employee_id = '${AGENT70}' and state = 'draft'`), "true"],
 
+    /* 20261014002000: a Team Lead reads their people's EOD (rule 20c gives
+       them People & Teams › End of Day over the teams they lead; rule 20b: a
+       relationship, never a rank). bes.lead holds no seat and no ops.manage,
+       so only the team relationship can let these pass. */
+    ["a team lead with no management seat reads a team member's EOD",
+      () => p70(AGENT70, `insert into public.eod_submissions (agency_id, employee_id, work_date, state)
+        values ('${AG70}', '${AGENT70}', current_date, 'submitted');
+        set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
+        select count(*)::int as rows from public.eod_submissions where employee_id = '${AGENT70}' and work_date = current_date`), 1],
+    ["…an agent still cannot read their lead's EOD",
+      () => p70(LEAD70, `insert into public.eod_submissions (agency_id, employee_id, work_date, state)
+        values ('${AG70}', '${LEAD70}', current_date, 'submitted');
+        set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select count(*)::int as rows from public.eod_submissions where employee_id = '${LEAD70}' and work_date = current_date`), 0],
+    ["…nor can staff from another division read the agent's",
+      () => p70(AGENT70, `insert into public.eod_submissions (agency_id, employee_id, work_date, state)
+        values ('${AG70}', '${AGENT70}', current_date, 'submitted');
+        set local request.jwt.claims = '{"sub":"${FUND70}","role":"authenticated"}';
+        select count(*)::int as rows from public.eod_submissions where employee_id = '${AGENT70}' and work_date = current_date`), 0],
+
     /* ── member documents (0273): HR paper is a capability, never staff status ── */
     ["adding a team member document needs the documents capability",
       () => p70(ADM70, `set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';

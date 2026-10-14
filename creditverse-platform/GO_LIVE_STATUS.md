@@ -394,16 +394,18 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 ## NEEDS FIX
 
-- Full security matrix: today's run crawled (phase 2 after 20 minutes under
-  machine load) and was stopped before applying migrations; phases 37, 70,
-  71 (payroll) and 77 (portal) were re-run clean. The full gate must be
-  re-run at a quiet hour before the next release. Known pre-existing
-  bootstrap mismatch untouched: `org.owner attention=2 (want 1)`.
-- A Team Lead who holds neither `ops.manage` nor a seat cannot read their
-  agents' `eod_submissions` rows directly (`eod_submissions_select` is self
-  or `is_manager_of`); the rollup function still serves them. No real lead is
-  in that position today (all three hold management access). Watch it when
-  a plain team lead is appointed.
+- ~~Full security matrix re-run~~ — DONE 2026-10-03: 1760/1760, probes all
+  green (commit `c2d7877`), the `org.owner attention` mismatch resolved with
+  it. Next full run is due with the next authorization migration
+  (`20261014001000`, lenders — awaiting Dee's `db push`).
+- ~~A Team Lead who holds neither `ops.manage` nor a seat cannot read their
+  agents' `eod_submissions` rows directly~~ — FIXED 2026-10-14 in
+  `20261014002000` (read follows `managed_people()` plus the direct
+  team-lead relationship; UPDATE untouched). Proven in rolled-back
+  transactions as the fixture lead, agent, other-division staff and Dee;
+  three named checks in matrix phase 70. **NOT YET APPLIED** — ships with
+  the lender migration on Dee's `db push`. No real lead is in that position
+  today, so nothing changes for the team until one is appointed.
 - `managed_people()` excludes fixture profiles by design; authorization that
   must also work for the matrix's fixture leads keeps the direct team-lead
   branch (migration 20261001014000). Any future "in scope" check must do the
