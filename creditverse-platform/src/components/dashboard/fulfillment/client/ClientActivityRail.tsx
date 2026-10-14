@@ -14,15 +14,18 @@
  * Imported ClickUp comments and notes written here are the same kind of row,
  * so an eleven-month conversation carries on in the same column it arrived in.
  */
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { FileText, Loader2, Pencil, SmilePlus, ThumbsUp, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format-date";
 import { useFilePreviews } from "@/lib/data/use-file-previews";
 import { useToast } from "@/hooks/use-toast";
+import { requireSupabase } from "@/lib/supabase/client";
+import type { AttachmentFile } from "@/lib/fulfillment/attachment-domain";
+import { FileViewer } from "@/components/dashboard/fulfillment/FileViewer";
 import {
   useClientPosts, useDeletePost, useEditPost, useReactToPost, useReplyToPost,
-  type ClientPost, type FeedKind,
+  type ClientPost, type FeedFile, type FeedKind,
 } from "@/lib/data/use-client-posts";
 
 /* Dee's mockup, 2026-09-24. "All" is not a filter, it is the absence of one,
@@ -92,6 +95,13 @@ const toneFor = (key: string) => {
  */
 const PreviewUrls = createContext<Record<string, string>>({});
 
+/**
+ * Opens a non-image file from the feed in the in-app viewer. Provided by the
+ * rail so one viewer serves every card; signing happens on the click, not for
+ * every file in the feed (rule 14 — a PDF nobody opens costs nothing).
+ */
+const OpenFile = createContext<(file: FeedFile) => void>(() => {});
+
 const collectImageTargets = (posts: ClientPost[], out: { bucket: string; path: string }[] = []) => {
   for (const p of posts) {
     if (p.file && (p.file.mime ?? "").startsWith("image/")) out.push({ bucket: p.file.bucket, path: p.file.path });
@@ -107,6 +117,7 @@ const collectImageTargets = (posts: ClientPost[], out: { bucket: string; path: s
 function FileCard({ file }: { file: NonNullable<ClientPost["file"]> }) {
   const isImage = (file.mime ?? "").startsWith("image/");
   const url = useContext(PreviewUrls)[`${file.bucket}/${file.path}`];
+  const open = useContext(OpenFile);
   const size = file.size ? `${Math.max(1, Math.round(file.size / 1024))} KB` : null;
 
   if (isImage) {
@@ -131,14 +142,25 @@ function FileCard({ file }: { file: NonNullable<ClientPost["file"]> }) {
     );
   }
 
+  /* A labelled row that OPENS (Dee, 2026-10-14: "cant view PDF that's
+     attached to the activity"). It used to be a plain box — a file you could
+     see but not read, a dead visible control. */
   return (
-    <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-2.5 py-2">
-      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+    <button
+      type="button"
+      onClick={() => open(file)}
+      title={`Open ${file.name}`}
+      className={cn(
+        "group mt-1.5 flex w-full items-center gap-2 rounded-lg border border-border bg-muted/30 px-2.5 py-2 text-left transition-colors",
+        "hover:border-primary/40 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      )}
+    >
+      <FileText className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden />
       <div className="min-w-0">
-        <p className="truncate text-xs font-medium text-foreground">{file.name}</p>
+        <p className="truncate text-xs font-medium text-foreground group-hover:text-primary">{file.name}</p>
         {size && <p className="text-[10px] text-muted-foreground">{size}</p>}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -481,6 +503,34 @@ export function ClientActivityRail({
   const previews = useFilePreviews(imageTargets);
   const previewUrls = previews.data ?? {};
 
+  /* The in-app viewer for a PDF (or any other non-image file) in the feed —
+     the same FileViewer the timeline and Documents use, so a PDF reads the
+     same everywhere. The link is signed when the card is clicked and lives
+     ten minutes: long enough to read, not to pass around. Storage RLS runs
+     on the signing call, so a reader who may not see the file gets a refusal
+     here, not a link. */
+  const { toast: fileToast } = useToast();
+  const [viewing, setViewing] = useState<AttachmentFile | null>(null);
+  const openFile = useCallback(async (file: FeedFile) => {
+    try {
+      const sb = requireSupabase();
+      const { data, error } = await sb.storage.from(file.bucket).createSignedUrl(file.path, 60 * 10);
+      if (error) throw error;
+      setViewing({
+        id: file.id,
+        name: file.name,
+        size: file.size ? `${Math.max(1, Math.round(file.size / 1024))} KB` : "",
+        type: file.mime ?? "",
+        category: "Client Correspondence",
+        url: data.signedUrl,
+        uploadedBy: "",
+        uploadedAt: "",
+      });
+    } catch (e) {
+      fileToast({ title: "Could not open that file", description: (e as Error).message, variant: "destructive" });
+    }
+  }, [fileToast]);
+
   /* Filtered in the browser over one fetch. Four tabs that each hit the
      network is the waterfall rule 14 forbids, and the whole feed for one
      client is small. */
@@ -511,6 +561,8 @@ export function ClientActivityRail({
 
   return (
     <PreviewUrls.Provider value={previewUrls}>
+    <OpenFile.Provider value={openFile}>
+    {viewing && <FileViewer files={[viewing]} startIndex={0} onClose={() => setViewing(null)} />}
     <aside className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card">
       <header className="flex items-baseline justify-between border-b border-border px-4 py-2.5">
         <h2 className="text-sm font-bold text-foreground">Activity</h2>
@@ -603,6 +655,7 @@ export function ClientActivityRail({
         )}
       </div>
     </aside>
+    </OpenFile.Provider>
     </PreviewUrls.Provider>
   );
 }
