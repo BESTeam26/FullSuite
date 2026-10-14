@@ -1286,3 +1286,37 @@ partner grant it is an authorization change (rule 20: plan first).
 built, and not to be built. The architecture above is kept only as the
 record of what was considered. The decision is locked in
 CURRENT_PRODUCT_DECISIONS.md › Partner Portal access.
+
+## D-026 — FundingOps lender catalogue: two gaps found while fixing lender creation (2026-10-14)
+
+**Recorded by Claude, 2026-10-14, while finishing `20261014001000` (lender
+creation refused for everyone — the RETURNING / SELECT-policy defect first
+found 2026-09-30 in an abandoned worktree). FundingOps is paused (rule 16b,
+roadmap item 5) and the live database holds 1 real organization, 0 lenders,
+0 programs; nobody is blocked today. Both items are product decisions for
+Dee, not defects to fix in passing.**
+
+**1. No interface path creates a BES catalogue lender.** `Lenders.tsx` draws
+Add Lender only inside an organization context (`agency.activeOrganization`)
+and `createLender()` always files the lender under that organization. A
+catalogue lender (`organization_id null`, readable by every active
+organization member) can be created by a BES manager in the database, but
+no screen offers it. **Decision needed:** should BES staff maintain a shared
+catalogue the organizations read, or does each organization keep its own
+list? The insert policy already allows both; only the screen is missing.
+
+**2. Who may remove a Draft lender selection (`funding_deals` DELETE).**
+`funding_deals_delete` is still `is_agency_admin()` only
+(`20260903000800`), while insert and update have followed the file since
+`20260904004300` (`file_reviewer(file_id)`). An organization reviewer can
+select a lender but cannot un-select it: `unselectLender()` in
+`src/lib/data/funding-domain.ts` deletes `status = 'Draft'` rows, RLS
+filters the row out, PostgREST reports success with zero rows, and the
+Remove button in SelectedLendersTab does nothing with no error — a dead
+visible control (rule 21: pilot blocker class, but in a paused module).
+**Proposed, if Dee agrees:** `funding_deals_delete using (status = 'Draft'
+and public.file_reviewer(file_id))`, and `unselectLender()` asking for the
+deleted row back so a refusal surfaces. **Decision needed:** should a Draft
+be removable by the same people who created it, and should an agency admin
+keep the power to delete a submitted deal at all (rule 11: a submitted deal
+is history)?
