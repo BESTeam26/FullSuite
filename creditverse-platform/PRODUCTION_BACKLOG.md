@@ -238,6 +238,19 @@ could make on its own; all three were hers, and she answered them directly.
 
 ## HUMAN GATE — needs Dee or a real operator
 
+- **CreditOps · Add Client from the Main Client List (Dee, 2026-10-12: "we
+  cant add clients in Creditops").** DEPLOYED 2026-10-14 (`fb1fce3`, live at
+  app.bescrm.net). The list has no partner in context and the CreditOps
+  dialog never offered one, so Save threw before writing — silently; the
+  default status "Onboarding" had also been retired from Dee's list, so the
+  field showed blank. Now: a Partner field (same wiring FundingOps had),
+  default "New Client", record filed under the chosen partner; the insert
+  policy is unchanged and still decides who may file under which partner.
+  Guarded by `add-client-partner-choice.test.tsx` (fails 4/5 on the old
+  code). UI VERIFIED on the preview without saving. **HUMAN TEST REQUIRED:**
+  a real operator adds one real client from the Main Client List, and once
+  from inside a partner workspace, and finds it in the Onboarding queue.
+
 - **Notifications are TWO delivery channels, verified separately (Dee,
   2026-10-01).** (1) In-app: toast, ringing bell, tab-title badge, desktop
   alert while a tab is open — LIVE VERIFIED. (2) Closed-app push — NOT
