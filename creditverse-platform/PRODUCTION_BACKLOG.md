@@ -246,10 +246,12 @@ could make on its own; all three were hers, and she answered them directly.
   desktop and phone width. **HUMAN TEST REQUIRED:** Dee opens the October
   progress report on Sterlin Cadet's file from the Activity column, on a
   laptop and on a phone.
-- **FundingOps · lender creation (`b273a3c`, migration `20261014001000`).**
-  Code DEPLOYED 2026-10-14; the migration is **NOT YET APPLIED** — Dee runs
-  `npx supabase db push` from `creditverse-platform/` (the harness refused
-  to run it). Until then nothing changes in the live database.
+- **FundingOps · lender creation (`b273a3c`, migration `20261014001000`)
+  and Team Lead reads their people's EOD (`6b72fd2`, `20261014002000`).**
+  Both APPLIED and DEPLOYED 2026-10-14 on Dee's go; matrix phases 22 and 70
+  173/173 afterwards. HUMAN TEST REQUIRED (lenders, low priority while
+  FundingOps is paused): an organization admin adds a lender on the Lenders
+  page and sees it in the list.
 
 - **CreditOps · Add Client from the Main Client List (Dee, 2026-10-12: "we
   cant add clients in Creditops").** DEPLOYED 2026-10-14 (`fb1fce3`, live at
