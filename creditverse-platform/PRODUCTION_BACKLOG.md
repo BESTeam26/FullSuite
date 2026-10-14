@@ -238,6 +238,19 @@ could make on its own; all three were hers, and she answered them directly.
 
 ## HUMAN GATE — needs Dee or a real operator
 
+- **CreditOps · a PDF in the client's Activity column opens (Dee,
+  2026-10-14: "cant view PDF that's attached to the activity").** DEPLOYED
+  2026-10-14 (`4c375ad`, live at app.bescrm.net). The rail drew a non-image
+  file as a plain box; it is now a button that signs the object on the click
+  and opens it in the in-app FileViewer. UI VERIFIED on Dee's own upload at
+  desktop and phone width. **HUMAN TEST REQUIRED:** Dee opens the October
+  progress report on Sterlin Cadet's file from the Activity column, on a
+  laptop and on a phone.
+- **FundingOps · lender creation (`b273a3c`, migration `20261014001000`).**
+  Code DEPLOYED 2026-10-14; the migration is **NOT YET APPLIED** — Dee runs
+  `npx supabase db push` from `creditverse-platform/` (the harness refused
+  to run it). Until then nothing changes in the live database.
+
 - **CreditOps · Add Client from the Main Client List (Dee, 2026-10-12: "we
   cant add clients in Creditops").** DEPLOYED 2026-10-14 (`fb1fce3`, live at
   app.bescrm.net). The list has no partner in context and the CreditOps
