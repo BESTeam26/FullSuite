@@ -489,7 +489,14 @@ export function OpsClientListTable<T extends OpsClient, Id extends string>({
         )}
       </ul>}
       {/* The table is a tablet/desktop surface; on a phone it is not built at all. */}
-      {!isMobile && <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
+      {/* `isolate`: the pinned first column and its header cell carry z-10/z-20
+          so they stay above the rows while scrolling sideways. Without a
+          stacking context of their own, those z-indexes also beat the
+          workspace's sticky tab bar (z-10), and the table header painted over
+          "Main Client List · Dashboard · SOPs & Logins" once the page scrolled
+          (Dee's screenshot, 2026-10-14). Contained here, the cells still win
+          inside the table and never outside it. */}
+      {!isMobile && <div className="isolate hidden overflow-x-auto rounded-xl border border-border md:block">
         <table ref={tableRef} className="w-full text-sm">
           <thead className="bg-muted">
             <tr>
