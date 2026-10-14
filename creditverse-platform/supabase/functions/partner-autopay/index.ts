@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
           },
         }),
       });
-      result = JSON.parse((await r.text()).replace(/^﻿/, "")) as AuthNetResult;
+      result = JSON.parse((await r.text()).replace(/^\uFEFF/, "")) as AuthNetResult;
     } catch (e) {
       /* The answer never arrived. It may have charged. This invoice is now
          UNKNOWN, which takes it out of tomorrow's sweep as well — resolved by

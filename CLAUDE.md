@@ -35,8 +35,10 @@ deploy it" in its §4), and §21a's "test, deploy". Those documents are kept ver
 when their deploy step happens.
 
 **Project layout:** the application lives in `creditverse-platform/`. The backend
-schema lives in `creditverse-platform/supabase/`. Current state and build order
-are recorded in `creditverse-platform/BUILD_STATUS.md`.
+schema lives in `creditverse-platform/supabase/`. Current state is recorded in
+`creditverse-platform/GO_LIVE_STATUS.md` (the active program's status) and
+`creditverse-platform/PRODUCTION_BACKLOG.md` (what is open). `BUILD_STATUS.md`
+is the historical build log; its narrative stops at 2026-09-08.
 
 **Always run `supabase` and `npm` commands from `creditverse-platform/`, never
 from the repository root.**
@@ -118,11 +120,9 @@ sidebar and branded shell accents are dark.
 - Manual external-system records remain clearly marked by **provenance**
   (`saas_pulled` vs `outsourcing_only`; `bes_saas_synced` vs `agency_manual`).
 
-> Partly addressed: the CreditOps SaaS client list no longer carries its data
-> inline — it reads `lib/clients/client-seed.ts` and is labelled "Sample data"
-> in the interface. **Still outstanding:** those records remain a third shape of
-> a person, unrelated to `FulfillmentClient` and `FundingClient`. Reconciling
-> them onto the canonical record needs the Phase 6 backend. Do not extend them.
+> Resolved: the inline sample client list and `lib/clients/client-seed.ts`
+> were deleted with every other fabricated dataset (commit `cd526b0`). The
+> CreditOps client list reads the canonical `fulfillment_clients` records.
 
 ## 3. User and permission logic
 
@@ -1032,7 +1032,8 @@ runs: documentation and planning only, and never a schema change mid-run.
 
 Files: `CURRENT_PRODUCT_DECISIONS.md` (active doctrine only),
 `DEFERRED_AGENCY_WORK.md` (the backlog), `ARCHITECTURE_DECISIONS.md`
-(implemented decisions), `LIVE_OPERATIONS_READINESS.md` (this sprint's gate).
+(implemented decisions), `LIVE_OPERATIONS_READINESS.md` (the 2026-09-10
+sprint's gate — the live gate is now `GO_LIVE_STATUS.md`, §29).
 
 ## 24. Organizational units are real, not categories of work (Dee, 2026-09-21 — permanent)
 
@@ -1202,8 +1203,8 @@ alerts at all, which is why `infra_watch()` exists.
 ## 21b. THE LOCKED ROADMAP (Dee, 2026-09-10 — until Dee changes it)
 
 ```
-1. AGENCY HQ LIVE PILOT          ← active (pilot / observation mode, §21a)
-2. PARTNER PORTAL MVP            ← next active epic, only after a clean checkpoint
+1. AGENCY HQ LIVE PILOT          ← was active; §25 (2026-09-21) then §29 (2026-10-01) govern now
+2. PARTNER PORTAL MVP            ← freeze ended with §28 (2026-10-01); nine pages rebuilt 2026-10-02
 3. ORGANIZATION PLATFORM REFINEMENT
 4. DIY CREDIT REPAIR             ← documented as a future epic; not started
 5. FUNDINGOPS / ADVANCED PRODUCT WORK
@@ -1330,14 +1331,14 @@ these four see, and is that what they should see":
 |---|---|
 | **Agent** | `agency_user`, `access_scope = 'assigned'`, leads no team, no `ops.manage`. Sees their OWN work and nobody else's. |
 | **Team Lead** | `team_memberships.is_lead` on at least one live team. Sees the members of the teams they lead — a RELATIONSHIP, never a rank. |
-| **Division manager** | `ops.manage` with `scope_division` set (`access_scope = 'division'`). Sees one division. **Not the whole company.** |
+| **Division manager** | `ops.manage` plus a live `management_seats` row (`division_manager`) naming the division — AD-008, 2026-09-20. Sees one division. **Not the whole company.** (`scope_division` / `access_scope` are legacy columns and no longer authorize.) |
 | **Executive** | `agency_admin` / `is_owner`, `access_scope = 'agency'`. Company-wide. |
 
 ### The two mistakes this rule exists to stop
 
 1. **Treating `ops.manage` as company-wide.** `is_manager_of()` answers
    "has management authority", NOT "over everything". A division manager holds
-   it and must still be confined by `scope_division`. Anything company-wide —
+   it and must still be confined to the division their seat names. Anything company-wide —
    policy, point values, agency settings — needs `agency` scope, not merely
    management capability.
 2. **Falling back to "everyone" when no narrower scope matches.** A list that
@@ -1398,7 +1399,7 @@ For every feature, verify all four views on: navigation visibility, page
 visibility, record/data scope, available actions, direct-route access,
 backend/RPC authorization, empty/denied states. "Works for Dee" is not done.
 
-## 21. The active program: Live Operations Readiness (until Dee changes it)
+## 21. Live Operations Readiness (2026-09-08 — SUPERSEDED as the active program: §25 on 2026-09-21, then §29 on 2026-10-01; kept for the P0 list and the security-roles note)
 
 **Goal: the real BES team starts daily operations.** P0, in order: **Invite
 Users → Timer/My Time → CreditOps → Agent EOD → Team EOD → BES CRM**, plus
@@ -1435,7 +1436,8 @@ heavier workspace      < 2 s         3–5 s                investigate
 **No known 10-second interaction may ship**, in any module. Every
 performance change touching RLS, policies, views, helpers or visibility
 carries a per-role before/after visibility proof (the one-transaction
-pattern in `supabase/scripts/creditops-latency-probe.mjs`'s companions).
+pattern in `supabase/scripts/fullsuite-latency-probe.mjs`'s companions;
+`npm run probe:latency`).
 Fixed paths join the permanent latency suite with target, guard, baseline,
 role and request count, and a major regression fails the release gate.
 Measured as Owner/Executive, Division Manager, Department Manager, Team

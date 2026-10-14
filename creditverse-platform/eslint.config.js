@@ -5,7 +5,9 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  /* `.claude/` holds the desktop app's own worktrees — stale copies of this
+     tree, not source. Linting them reported the same four errors twice. */
+  { ignores: ["dist", ".claude"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

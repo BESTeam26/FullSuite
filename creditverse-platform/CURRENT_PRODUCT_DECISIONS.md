@@ -5,7 +5,16 @@ else. Brainstorming and future concepts go to `DEFERRED_AGENCY_WORK.md`;
 completed history goes to `COMPLETION_REGISTER.md`; permanent build rules live
 in `CLAUDE.md`.
 
-## LOCKED ROADMAP (2026-09-10)
+## ACTIVE NOW (2026-10-01 → )
+
+**Go-Live Stabilization Pass** — CLAUDE.md §29, text in
+`GO_LIVE_STABILIZATION_PASS.md`, status in `GO_LIVE_STATUS.md`, open items in
+`PRODUCTION_BACKLOG.md`. Fix what exists; add nothing. **Dee approves every
+release** (CLAUDE.md §0, 2026-10-12): nothing reaches `main`, the live
+database or a deploy without her "go" in the session. The three sections
+below are the history that led here and are superseded as the active program.
+
+## LOCKED ROADMAP (2026-09-10) — order kept; the Partner Portal freeze ended 2026-10-01 (§28)
 
 Agency HQ live pilot → Partner Portal MVP → Organization platform refinement
 → DIY Credit Repair → FundingOps / advanced. Agency HQ is functionally
@@ -13,13 +22,13 @@ frozen; Partner Portal is planned (D-007) and starts only after a clean
 pilot checkpoint; DIY is documented (D-009), not started. Rules: CLAUDE.md
 §21b.
 
-## PILOT OBSERVATION MODE (2026-09-10, supersedes "build first")
+## PILOT OBSERVATION MODE (2026-09-10 — SUPERSEDED 2026-09-21 by Production Operating Mode, CLAUDE.md §25)
 
 Real BES operations pilot. No proactive development; fix real defects at the
 root, capture ideas in `DEFERRED_AGENCY_WORK.md`, log issues in
 `PILOT_ISSUES.md`, LIVE VERIFIED is a human gate. Full rules: CLAUDE.md §21a.
 
-## The active program (2026-09-08)
+## Live Operations Readiness (2026-09-08 — SUPERSEDED as the active program, see ACTIVE NOW)
 
 **LIVE OPERATIONS READINESS.** P0 = Invite Users · Timer/My Time · CreditOps ·
 Agent EOD / Team EOD · BES CRM. Everything else is deferred unless it blocks

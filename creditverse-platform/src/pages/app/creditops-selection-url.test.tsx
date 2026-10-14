@@ -51,6 +51,10 @@ function useStalePatchParams() {
 }
 
 const Harness = ({ broken }: { broken: boolean }) => {
+  /* A test fixture: `broken` is fixed for the life of each render tree and
+     never toggled, so the hook order is stable. The rule guards production
+     components, not a harness that exists to compare two hooks. */
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const patch = broken ? useStalePatchParams() : usePatchParams();
   const loc = useLocation();
   return (
