@@ -6,6 +6,7 @@
 export const ACTION_KIND_LABEL: Record<string, string> = {
   document_required: "Missing document",
   client_confirmation: "Client confirmation needed",
+  endorsed_to_client: "Your file needs your decision",
   partner_confirmation: "Confirmation needed",
   content_approval: "Approval needed",
   campaign_approval: "Approval needed",
@@ -18,7 +19,7 @@ export const ACTION_KIND_LABEL: Record<string, string> = {
 };
 
 export const ACTION_KIND_ORDER = [
-  "billing", "signature", "document_required", "client_confirmation", "partner_confirmation",
+  "billing", "signature", "document_required", "client_confirmation", "endorsed_to_client", "partner_confirmation",
   "content_approval", "campaign_approval", "project_approval", "monitoring_login", "information_request", "question",
 ];
 

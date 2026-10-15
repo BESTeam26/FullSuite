@@ -44,7 +44,7 @@ const METRICS: OpsMetricsConfig<FulfillmentClient> = {
   /* Dee's 2026-09-22 names first; the older spellings stay for records
      written before the rename. */
   inactiveStatuses: ["Program Completed", "Inactive / Canceled", "Graduated",
-                     "Non Workable", "Completed", "Archived"],
+                     "Non Workable", "Endorsed to Client", "Completed", "Archived"],
   escalationStatuses: ["Attention"],
   openCount: (c) => c.openItems,
 };

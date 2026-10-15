@@ -22468,6 +22468,7 @@ export type Database = {
         | "Round Sent - Awaiting Results"
         | "Ready for Reimport / Review"
         | "Waiting for Partner Approval"
+        | "Endorsed to Client"
         | "New Client"
         | "Incomplete Onboarding"
         | "Prio Processing"
@@ -23240,6 +23241,7 @@ export const Constants = {
         "Round Sent - Awaiting Results",
         "Ready for Reimport / Review",
         "Waiting for Partner Approval",
+        "Endorsed to Client",
         "New Client",
         "Incomplete Onboarding",
         "Prio Processing",

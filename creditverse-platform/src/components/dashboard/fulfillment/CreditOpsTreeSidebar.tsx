@@ -98,6 +98,8 @@ interface CreditOpsTreeSidebarProps {
    hold, which is why they stay (rule 11). */
 const INACTIVE_STATUSES = [
   "Program Completed",
+  /* Handed to the client: no BES work on it until they answer (2026-10-15). */
+  "Endorsed to Client",
   "Inactive / Canceled",
   "Graduated",
   "Non Workable",

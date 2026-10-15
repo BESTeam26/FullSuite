@@ -222,7 +222,7 @@ const RULES: { family: StatusFamily; test: RegExp }[] = [
   /* Waiting on the CLIENT — Dee's doctrine separates this from waiting on a
      bureau, and the two must not look alike: only one of them has somebody to
      chase. */
-  { family: "clientAction", test: /client confirmation|waiting (on|client)|client response|docs pending|no cfpb login/ },
+  { family: "clientAction", test: /client confirmation|waiting (on|client)|client response|docs pending|no cfpb login|endorsed to client/ },
 
   /* Waiting on somebody else entirely. "Round sent" lives here: a round in
      the post is not work, whatever the queue looks like (§23). */

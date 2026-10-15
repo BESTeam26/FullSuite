@@ -366,6 +366,10 @@ export const CREDIT_STATUSES: readonly string[] = [
   "Monitoring Issue 3",
   "Outsourcing - Unpaid",
   "For Partner Confirmation",
+  /* Handed to the client (Dee, 2026-10-15): no BES department holds it,
+     every open row closes, the client portal carries the action. Not
+     completed — the client's answer brings it back. */
+  "Endorsed to Client",
   "Non Workable",
   /* No longer active */
   "Program Completed",

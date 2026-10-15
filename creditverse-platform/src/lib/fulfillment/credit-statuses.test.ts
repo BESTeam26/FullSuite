@@ -42,6 +42,7 @@ describe("Dee's credit status list", () => {
       "Monitoring Issue 1", "Monitoring Issue 2", "Monitoring Issue 3",
       "Outsourcing - Unpaid",
       "For Partner Confirmation",
+      "Endorsed to Client",
       "Non Workable",
       "Program Completed",
       "Graduated",
