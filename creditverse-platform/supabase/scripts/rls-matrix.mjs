@@ -6926,9 +6926,12 @@ if (runs(70)) {
       () => p70(AGENT70, `insert into public.time_entries (agency_id, employee_id, division_id, work_date)
           values ('${AG70}', '${AGENT70}', 'creditops', current_date);
         select public.start_break('lunch');
+        /* The Eastern workday, not current_date: between 20:00 and midnight
+           Eastern the server files the entry under a different day than the
+           UTC date, and this count found nothing (2026-10-14). */
         select (count(*) filter (where ended_at is null and kind = 'lunch'))::int
              + (count(*) filter (where ended_at is not null and kind = 'work'))::int as rows
-          from public.time_entries where employee_id = '${AGENT70}' and work_date = current_date`), 2],
+          from public.time_entries where employee_id = '${AGENT70}' and work_date = (now() at time zone 'America/New_York')::date`), 2],
 
     ["resuming work carries the interrupted division back",
       () => p70(AGENT70, `insert into public.time_entries (agency_id, employee_id, division_id, work_date)
@@ -7089,26 +7092,29 @@ if (runs(70)) {
                                          else (date_trunc('month', c.period_end) + interval '1 month' + make_interval(days => p.payday_second - 1))::date end)
                    from public.payroll_cutoffs c, p where c.period_end = p.period_end))::text as rows`), "true"],
 
+    /* The entries carry a fixed id and are addressed by it. Looking them up
+       by `work_date = current_date - n` found nothing between 20:00 and
+       midnight Eastern (00:00–04:00 UTC): the entry's work_date is the
+       Eastern day of started_at, current_date is the UTC day, and the two
+       differ by one — the request then ran on a null entry (2026-10-14). */
     ["a locked period refuses NEW adjustment requests by name",
-      () => p70(AGENT70, `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
-          values ('${AG70}', '${AGENT70}', 'creditops', current_date - 20, now() - interval '20 days', now() - interval '20 days' + interval '4 hours');
+      () => p70(AGENT70, `insert into public.time_entries (id, agency_id, employee_id, division_id, work_date, started_at, ended_at)
+          values ('99999999-0000-4000-8000-00000000e0a1', '${AG70}', '${AGENT70}', 'creditops', current_date - 20, now() - interval '20 days', now() - interval '20 days' + interval '4 hours');
         ${OWN_CALENDAR} set local role postgres;
         insert into public.payroll_cutoffs (agency_id, period_start, period_end, verification_locks_on)
           values ('${AG70}', current_date - 25, current_date - 15, current_date - 10);
         set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
-        select public.request_time_adjustment(
-          (select id from public.time_entries where employee_id = '${AGENT70}' and work_date = current_date - 20 limit 1),
+        select public.request_time_adjustment('99999999-0000-4000-8000-00000000e0a1',
           now() - interval '20 days' + interval '3 hours', 'I stopped earlier than recorded') as rows`), "ERR 22023"],
 
     ["…while the same request inside the window is accepted",
-      () => p70(AGENT70, `insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
-          values ('${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '2 days', now() - interval '2 days' + interval '4 hours');
+      () => p70(AGENT70, `insert into public.time_entries (id, agency_id, employee_id, division_id, work_date, started_at, ended_at)
+          values ('99999999-0000-4000-8000-00000000e0a2', '${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '2 days', now() - interval '2 days' + interval '4 hours');
         ${OWN_CALENDAR} set local role postgres;
         insert into public.payroll_cutoffs (agency_id, period_start, period_end, verification_locks_on)
           values ('${AG70}', current_date - 8, current_date - 1, current_date + 4);
         set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
-        select (public.request_time_adjustment(
-          (select id from public.time_entries where employee_id = '${AGENT70}' and work_date = current_date - 2 limit 1),
+        select (public.request_time_adjustment('99999999-0000-4000-8000-00000000e0a2',
           now() - interval '2 days' + interval '3 hours', 'I stopped earlier than recorded') is not null)::text as rows`), "true"],
 
     ["an approved adjustment recomputes the draft payslips by itself",
@@ -7120,8 +7126,8 @@ if (runs(70)) {
           values ('${AG70}', '${AGENT70}', 'direct_bes', 'hourly', 6000, 6000, 'USD', current_date - 90,
                   'Probe: payroll prices from the arrangement.');
         select set_config('bes.time_system', '1', true);
-        insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
-          values ('${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '50 hours', now() - interval '46 hours');
+        insert into public.time_entries (id, agency_id, employee_id, division_id, work_date, started_at, ended_at)
+          values ('99999999-0000-4000-8000-00000000e0a3', '${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '50 hours', now() - interval '46 hours');
         select set_config('bes.time_system', '', true);
         set local role authenticated; set local request.jwt.claims = '{"sub":"${PAY70}","role":"authenticated"}';
         insert into public.payroll_cutoffs (id, agency_id, period_start, period_end)
@@ -7130,8 +7136,7 @@ if (runs(70)) {
            of Dee's. */
         select public.generate_payroll(${CUT70("f1")});
         set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
-        select set_config('probe.adj', public.request_time_adjustment(
-          (select id from public.time_entries where employee_id = '${AGENT70}' and work_date = current_date - 2 limit 1),
+        select set_config('probe.adj', public.request_time_adjustment('99999999-0000-4000-8000-00000000e0a3',
           now() - interval '48 hours', 'Stopped two hours earlier than recorded')::text, true);
         set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
         select public.decide_time_adjustment(current_setting('probe.adj')::uuid, true);
@@ -7155,17 +7160,17 @@ if (runs(70)) {
       () => p70(AGENT70, `insert into public.eod_submissions (agency_id, employee_id, work_date, state)
         values ('${AG70}', '${AGENT70}', current_date, 'submitted');
         set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
-        select count(*)::int as rows from public.eod_submissions where employee_id = '${AGENT70}' and work_date = current_date`), 1],
+        select count(*)::int as rows from public.eod_submissions where employee_id = '${AGENT70}' and work_date = (now() at time zone 'America/New_York')::date`), 1],
     ["…an agent still cannot read their lead's EOD",
       () => p70(LEAD70, `insert into public.eod_submissions (agency_id, employee_id, work_date, state)
         values ('${AG70}', '${LEAD70}', current_date, 'submitted');
         set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
-        select count(*)::int as rows from public.eod_submissions where employee_id = '${LEAD70}' and work_date = current_date`), 0],
+        select count(*)::int as rows from public.eod_submissions where employee_id = '${LEAD70}' and work_date = (now() at time zone 'America/New_York')::date`), 0],
     ["…nor can staff from another division read the agent's",
       () => p70(AGENT70, `insert into public.eod_submissions (agency_id, employee_id, work_date, state)
         values ('${AG70}', '${AGENT70}', current_date, 'submitted');
         set local request.jwt.claims = '{"sub":"${FUND70}","role":"authenticated"}';
-        select count(*)::int as rows from public.eod_submissions where employee_id = '${AGENT70}' and work_date = current_date`), 0],
+        select count(*)::int as rows from public.eod_submissions where employee_id = '${AGENT70}' and work_date = (now() at time zone 'America/New_York')::date`), 0],
 
     /* 20261014003000: test work never reaches a real person's attention.
        Run as a REAL active owner from the roster (the fixtures must keep
@@ -7187,10 +7192,12 @@ if (runs(70)) {
             from public.outsourcing_groups g where g.name like '[TEST]%' limit 1;
         insert into public.work_items (id, agency_id, scope, division, related_type, related_ref, title, stage, due_at)
           values ('99999999-0000-4000-8000-00000000c0b1', '${AG70}', 'AGENCY', 'bes_crm', 'project', '99999999-0000-4000-8000-00000000c0a1', '[PROBE] unit', 'Queued', now() - interval '1 day');
+        select public.crm_project_archive('99999999-0000-4000-8000-00000000c0a1', 'probe');
+        /* Separate statements on purpose: a subquery beside the archive
+           call would read the statement's opening snapshot and never see
+           the archive's own writes. */
         select (select count(*) from public.work_attention where id = '99999999-0000-4000-8000-00000000c0b1')::text
-          || ':' || (select public.crm_project_archive('99999999-0000-4000-8000-00000000c0a1', 'probe')::text)
-          || (select count(*) from public.work_attention where id = '99999999-0000-4000-8000-00000000c0b1')::text
-          || ':' || (select (archived_at is not null)::text from public.work_items where id = '99999999-0000-4000-8000-00000000c0b1') as rows`), "1:0:true"],
+          || ':' || (select (archived_at is not null)::text from public.work_items where id = '99999999-0000-4000-8000-00000000c0b1') as rows`), "0:true"],
 
     /* ── member documents (0273): HR paper is a capability, never staff status ── */
     ["adding a team member document needs the documents capability",
