@@ -28,6 +28,7 @@
     "probe:release": "node supabase/scripts/release-certification-probe.mjs",
     "probe:eod": "node supabase/scripts/eod-probe.mjs",
     "probe:latency": "node supabase/scripts/fullsuite-latency-probe.mjs",
+    "probe:agents": "node supabase/scripts/creditops-agent-walk.mjs",
     "gate": "bash scripts/release-gate.sh",
     "gate:selftest": "bash scripts/release-gate.selftest.sh"
   },

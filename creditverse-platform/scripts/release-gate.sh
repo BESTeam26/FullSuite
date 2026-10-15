@@ -32,4 +32,10 @@ npm run build --silent
 echo "== creditops latency (live, as executive and agent) =="
 node supabase/scripts/fullsuite-latency-probe.mjs
 
+# Dee, 2026-10-15: "ensure all working functions are LOCKED and don't make
+# them not working again." Every write an agent makes in a day, as every
+# ACTIVE agent on the live roster, rolled back. One refusal = no release.
+echo "== creditops agent walk (live, as every active agent, rolled back) =="
+node supabase/scripts/creditops-agent-walk.mjs
+
 echo "== GATE PASSED =="
