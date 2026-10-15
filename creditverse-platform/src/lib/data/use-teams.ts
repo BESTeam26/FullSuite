@@ -44,18 +44,21 @@ export function useTeams() {
     // Team structure changes rarely; keep it off the wire during a session.
     staleTime: 5 * 60_000,
   });
+  const wideReach = auth.isAgencyAdmin || auth.agencyScope === "agency" || auth.agencyScope === "division";
   return {
     teams: q.data ?? [],
     isLoading: live ? q.isLoading : false,
-    /** Whether this user's ceiling requires a team to be chosen at creation. */
-    mustChooseTeam: auth.agencyScope === "team" || auth.agencyScope === "department",
-    /** A team is pre-selected only when the user's ceiling requires one. For
-        everybody else the default is "No team": a CreditOps client is scoped
-        by its partner and its department assignments, and 1,451 of the 1,454
-        live files have no team. Pre-selecting the first team Dee LEADS put two
-        new clients on the Admin Team on 2026-10-15. */
-    defaultTeamId: auth.agencyScope === "team" || auth.agencyScope === "department"
-      ? (auth.ledTeamIds[0] ?? auth.teamIds[0] ?? null)
-      : null,
+    /** Whether this user's ceiling requires a team to be chosen at creation.
+        `in_scope()` with no team and no assignee passes only an agency admin
+        or somebody with management reach; an agent (scope "assigned") can
+        create only inside a team of theirs. 2026-10-15: defaulting agents to
+        "No team" made every Add Client fail for Kaori with a row-security
+        error. */
+    mustChooseTeam: !wideReach,
+    /** An admin or division manager creates with no team, like 1,451 of the
+        1,454 live files (a CreditOps file is scoped by partner and department).
+        Everybody else starts on the first team they lead, else the first they
+        sit on — the only place the database lets them create. */
+    defaultTeamId: wideReach ? null : (auth.ledTeamIds[0] ?? auth.teamIds[0] ?? null),
   };
 }

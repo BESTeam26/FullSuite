@@ -383,7 +383,16 @@ could make on its own; all three were hers, and she answered them directly.
   other 1,451 live files have no team. Fixed in `use-teams.ts`: a team is
   pre-selected only when the user's ceiling requires one; otherwise "No
   team". DEPLOYED 2026-10-15; the two Admin-Team clients cleared by
-  `team-2026-10-15-slow-season.mjs` on Dee's go.
+  `team-2026-10-15-slow-season.mjs` on Dee's go. **Then broken for agents
+  (Dee, 2026-10-15, Credit by Nainoa: "new row violates row-level security
+  policy for table fulfillment_clients").** `in_scope()` with no team lets
+  only an admin or somebody with management reach create; an agent creates
+  only inside a team of theirs, so "No team" refused Kaori. Proven as each
+  person in rolled-back transactions: Dee OK with any team or none; Kaori OK
+  only on Support; Danicko only on Dispute; Ivan only on Complaints. Fixed:
+  no team for an admin / agency / division scope, own team and a required
+  choice for everybody else; five per-view tests in `use-teams.test.tsx`.
+  AWAITING RELEASE.
 
 - **Three CreditOps rules from Dee, 2026-10-15 — DEPLOYED 2026-10-15 on
   Dee's "Go, I want them all live now" (`c91318e`, migrations applied):** (1)
