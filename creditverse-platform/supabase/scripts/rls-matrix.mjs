@@ -2769,7 +2769,12 @@ if (runs(47)) {
            and (d.proname, r.proname) not in (
              ('eod_set_routing', 'eod_day_activity'),   -- the employee's own day, at submission
              ('eod_set_routing', 'eod_documents_for'),  -- the lead's own team report, at submission
-             ('eod_my_report',   'eod_documents_for'))  -- the caller's own team report, live`)[0].rows, 0],
+             ('eod_my_report',   'eod_documents_for'),  -- the caller's own team report, live
+             /* 20261015006000: the same two computations, run after the cutoff
+                AS THE LEAD (their claims set for the transaction) to rebuild
+                their own stored day and report. Nothing is authorized by them. */
+             ('eod_finalize_reports', 'eod_day_activity'),
+             ('eod_finalize_reports', 'eod_documents_for'))`)[0].rows, 0],
 
     /* A client's conversation asks the client rule (20261001019000).
        fulfillment_client_readable() copies the fulfillment_clients select
