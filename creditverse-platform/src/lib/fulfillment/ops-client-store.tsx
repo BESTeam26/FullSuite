@@ -725,6 +725,13 @@ export function createOpsClientStore<T extends OpsClient, D>(
         try {
           const updated = await backend.updateStatus(clientId, newStatus);
           patchClient(updated);
+          /* The database routes the file on a status change: it opens, closes
+             or re-points department rows (creditops_route_client). The rows
+             cached for this file are now stale, and the header read them as
+             "No open work" after Dee moved a file to Monitoring Issue
+             (2026-10-15). Reload this file's rows and the list's map. */
+          refreshDepartmentStatuses(clientId);
+          void queryClient.invalidateQueries({ queryKey: [config.queryKey, "department-statuses"] });
           /* Fired after the write is durable, never before — a signal that
              says the status changed must not go out if it did not. */
           notifyStatusChange({
@@ -740,7 +747,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
         }
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [clients, patchClient],
+      [clients, patchClient, refreshDepartmentStatuses],
     );
 
     const canAssign = Boolean(backend.updateAssignee);

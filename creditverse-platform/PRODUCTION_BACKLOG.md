@@ -260,6 +260,48 @@ could make on its own; all three were hers, and she answered them directly.
 
 ## HUMAN GATE — needs Dee or a real operator
 
+- **CreditOps · a status change now shows the work it opened (Dee,
+  2026-10-15: "When I move them to any open-for-work status, I should have
+  them in the open queue on whichever department they belong to … it did
+  not open a work for Monitoring Issue").** The database DID open the
+  Support row the moment Shanika Dessalines went to Monitoring Issue 2
+  (activity: "Support status changed (none) → MONITORING ISSUE"); the
+  client file's store reloaded the client but never its cached department
+  rows, so the header kept saying "No open work · Unassigned" until a page
+  reload. Fixed in `ops-client-store.tsx`: a status change reloads the
+  file's department rows and the list's map. Regression test added.
+  AWAITING RELEASE. **Why the row showed no assignee:** the Support
+  department is in team-lead assignment mode, so the row opens unassigned
+  for the lead to hand out — that is the configured rule, not a defect.
+  **Dee also asked to remove the Complete Work button.** NOT DONE, on
+  purpose, and flagged: Complete Work is where an agent ticks the actions
+  done on a file, which is what writes production, the EOD "what I did
+  today" table and the handoffs. The status rule above now works without
+  it; removing the button would stop production from being recorded. Dee
+  to confirm what she wants gone.
+
+- **CreditOps · Complete Work failed with "duplicate key value violates
+  unique constraint client_department_statuses_pkey" (Dee, 2026-10-15,
+  Joel Marte).** Kaori moved the file to Ready for Round 1 and handed off
+  to Dispute in one Complete Work. The status change had already routed
+  the file (Dispute row opened, assigned to Danicko); the handoff function
+  runs with the caller's rights, and a Support agent cannot see Dispute's
+  row, so its "already open?" check found nothing and the insert collided.
+  `20261015007000` adds a definer helper that answers "is there a row" for
+  a client the caller may write, past row security. PROVEN live in a
+  rolled-back transaction as Kaori: the same handoff now returns opened
+  Complaints, already open Dispute, no error; a zero-visibility user gets
+  "no" from the helper. AWAITING RELEASE. Joel Marte's file is already
+  correct in the database (Onboarding closed, Dispute open with Danicko).
+
+- **CreditOps · 23 files read "Program Completed" that are not complete
+  (Dee, 2026-10-15, Shanika Dessalines).** All 23 came from the ClickUp
+  import with source status "endorsed to client", mapped to Program
+  Completed on 2026-09-25/29 with lifecycle program_completed. Dee to say
+  what "endorsed to client" means (the status those files should hold);
+  the remap is one live write per file through the routing engine, with
+  her go.
+
 - **EOD · a lead's report is final at the cutoff and counts every lead
   below (Dee, 2026-10-15: "I keep seeing 0 when there should be some
   report. This is not accurate.").** AWAITING RELEASE: migration

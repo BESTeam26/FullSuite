@@ -5474,6 +5474,12 @@ if (runs(62)) {
     ["A · a TEAM-scoped lead whose team holds the partner can hand off",
       () => p62(LEAD62, world62(), handoff(["Complaints"], ["COMPLAINT NOT NEEDED"])),
       '{"opened": ["Complaints"], "alreadyOpen": []}'],
+    /* 20261015007000: a destination already open is reported as such even when
+       the caller cannot SEE its row (Kaori, a Support agent, handing off to a
+       Dispute row the status change had just opened) — never a duplicate key. */
+    ["…and a destination already open is reported, not re-inserted, whether or not the caller can see its row",
+      () => p62(LEAD62, world62({ complaintsOpen: true }), handoff(["Complaints"], ["LETTERS PENDING"])),
+      '{"opened": [], "alreadyOpen": ["Complaints"]}'],
     /* §7 says handing a file on must not close or rewrite the department it
        LEAVES. It used to be checked by asserting no Dispute row existed at
        all, which stopped meaning anything once routing began opening one on
