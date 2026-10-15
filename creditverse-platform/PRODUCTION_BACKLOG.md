@@ -184,14 +184,17 @@ says feels slow is profiled as a real session):**
 
 ## LATER — useful, not currently blocking operations
 
-- **Route/code prefetch audit** (recorded 2026-10-03, Dee). A cold FullSuite
-  load downloads roughly 250 background code files for unrelated pages
-  (`lib/nav/prefetch-visible.ts` warms every screen in the rendered menu
-  when the browser is idle; most are served from cache after the first
-  visit, so warm loads barely notice). Goal: opening one module does not
-  aggressively download most of FullSuite when those routes are not needed
-  — e.g. warm only the next likely screens, or only on hover. Not a broad
-  frontend rewrite; measured on a cold cache and on a phone first.
+- ~~**Route/code prefetch audit** (recorded 2026-10-03, Dee)~~ — DONE
+  2026-10-14. Measured on the production build (static imports beyond the
+  shell): idle warming of every menu route pulled **323 files / 2.6 MB**
+  after any page; `prefetch-visible.ts` now warms only the first five menu
+  screens (Home, Attention, Communication, My Work, End of Day — **103
+  files / 0.7 MB**), hover/focus warming is unchanged for deliberate
+  clicks, and a module opened by hand costs its own ~120 files / 0.5 MB
+  once. Confirmed in the dev preview: after opening CreditOps, FundingOps,
+  BES CRM, TalentOps, Reporting and Finance no longer download. Guarded by
+  `prefetch-visible.test.ts`. HUMAN CHECK (optional): a cold load on a phone
+  feels lighter; no screen feels slower on first click.
 
 - **The notification bell mounts slowly in jsdom** (17–34 s per device-state
   case under load, 2026-10-01; the suite failed twice on the 30 s limit after
