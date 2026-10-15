@@ -1437,3 +1437,67 @@ rate (the derived hourly × 1.25? a flat amount?). With those three answers
 this is a bounded change: an approval-based adjustment kind alongside the
 existing `time_adjustment_requests`, priced by the arrangement — never a
 second pay engine (rules 2, 5; `people-management-state`).
+
+## D-028 — Flexible ("free") schedules (Dee, 2026-10-15) · DOCUMENTED, interim applied
+
+**Dee:** "They have FREE schedule and open overtime as long as their work is
+aligned with the hours." Kaori's pay: 20,000 PHP monthly package.
+
+**Problem.** The payroll engine prices a monthly package from the person's
+work schedule (scheduled days and hours give the daily and hourly rate, and
+8 scheduled hours is the overtime line, D-027). A person with no schedule
+gets no payslip at all. The attendance engine reads the same schedule and
+scores lateness and absence against it (grace is capped at 120 minutes).
+There is no way today to say "these hours define the pay, but attendance is
+not scored against them".
+
+**Interim, applied 2026-10-15 as Dee:** Kaori's arrangement set (20,000 PHP
+monthly, direct BES, from 2026-10-01). Danicko and Kaori given the same
+pay-basis schedule as Daniel and Ivan — Mon–Fri 09:00–18:00 Eastern, 60-minute
+lunch, 30-minute breaks — with the maximum grace (120 minutes). Payroll and
+overtime now price; attendance will still score a day worked at other hours
+as late, half-day or absent. **Dee should expect attendance scores for the
+four to be unreliable until this is built, and not act on them.**
+
+**Proposed architecture.** A `schedule_kind` on `work_schedules`: `fixed`
+(today) or `flexible`. Flexible: hours per day are the pay basis and the
+overtime line; attendance derives presence and total hours only — no late,
+half-day or absent events, no attendance penalties — and the Schedule page
+shows "Flexible · 8h/day". One column, read in the attendance derivation and
+the schedule display; payroll unchanged.
+
+**Why deferred.** Touches the attendance and performance engines (rule 20,
+architecture change) while scoring has just started; needs Dee to confirm
+which four people are flexible and whether a flexible day has a minimum.
+
+## D-029 — Activity tracking and idle clock-out (Dee, 2026-10-15) · DOCUMENTED, not started
+
+**Dee:** "A capability that the app can track the mouse click and keyboard
+or screen activity to ensure they are working, especially for work
+employees. Like if the screen went to sleep, their clock will be kicked out."
+
+**What a web app can and cannot do.** FullSuite runs in a browser tab. It
+can see activity INSIDE its own tab (clicks, keys, scrolling), whether the
+tab is visible, and — in Chrome, with the person's permission — whether the
+whole device has been idle or locked (Idle Detection API). It cannot see
+mouse or keyboard activity in other windows, take screenshots, or watch the
+screen; that needs an installed desktop agent, which is a separate product
+and a privacy decision for Dee to make in writing with the team.
+
+**Proposed, in two steps.**
+1. *Idle clock-out (web, feasible now).* While clocked in, the shell records
+   the last activity in the FullSuite tab and, where available, device idle
+   state. After N minutes with no activity (Dee sets N; 15 by default) the
+   timer is stopped at the last activity time, the entry is tagged
+   "auto-stopped: idle", the agent and their lead are notified, and the
+   agent is asked why on their next action. Builds on the existing 10-hour
+   auto-stop and lead notifications (timer governance); no new engine. Cost
+   scales with one heartbeat per clocked-in person per minute (bounded by
+   head count).
+2. *Activity level reporting.* A per-person "active minutes in FullSuite"
+   figure beside time logged, from the same heartbeat — not keystroke
+   content, not screenshots. Shown to the person and their lead.
+
+**Why deferred.** Feature expansion outside the stabilization pass (rule
+20); step 1 needs Dee's idle threshold and a decision on whether idle time is
+unpaid; step 2 is a workforce-policy decision.
