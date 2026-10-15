@@ -396,9 +396,16 @@ through two pricing functions; no payroll adjustment could be saved.)
 
 - ~~Full security matrix re-run~~ — DONE 2026-10-03: 1760/1760, probes all
   green (commit `c2d7877`), the `org.owner attention` mismatch resolved with
-  it. The two 2026-10-14 authorization migrations (lenders, team-lead EOD
-  read) were covered by their own phases (22, 70: 173/173); the next full
-  run is due at the next quiet hour or the next broad RLS change.
+  it. **Full gate re-run 2026-10-15 02:54–03:43 UTC after the four
+  2026-10-14 authorization migrations (lenders, team-lead EOD read, test
+  work out of attention, archived work out of attention): 1771/1771.** Two
+  earlier runs the same night found 15 and then 2 red checks, every one a
+  harness fragility fixed in the suite, not a product defect: unscoped
+  notification counts (Dee's real announcements), a partner-timeline count
+  (Dee's real archive), Eastern-vs-UTC day lookups after 20:00 Eastern, a
+  statement timeout under full-run load (phase 47 alone: 112/112), and a
+  deadlock between the sweep probes' long transaction and cron (retried
+  once; production's hourly sweep: 168/168 in the week, 0.2 s).
 - ~~A Team Lead who holds neither `ops.manage` nor a seat cannot read their
   agents' `eod_submissions` rows directly~~ — FIXED 2026-10-14 in
   `20261014002000` (read follows `managed_people()` plus the direct
