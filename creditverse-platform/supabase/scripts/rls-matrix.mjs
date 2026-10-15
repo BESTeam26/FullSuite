@@ -5514,6 +5514,25 @@ if (runs(62)) {
         update public.fulfillment_clients set status = 'Ready for Round 1' where id='${CL62}';
         insert into lc62 select lifecycle::text from public.fulfillment_clients where id='${CL62}';
         select string_agg(l, ',' order by ctid) as rows from lc62; rollback;`)[0].rows, "program_completed,program_completed,active"],
+    /* 20261015004000 (Dee, 2026-10-15): Ready for Processing / Ready for
+       Round 1 / Prio Processing close Onboarding with Onboarding's own closed
+       status and clear every blocker on the file; the Dispute row opens. */
+    ["Ready for Round 1 closes Onboarding, clears the blocker, and opens Dispute",
+      () => q(`begin; ${world62()}
+        update public.fulfillment_clients set status = 'Incomplete Onboarding' where id='${CL62}';
+        update public.client_department_statuses set blocked_reason = 'Waiting on ID copy', blocked_at = now() where client_id='${CL62}' and department='Onboarding';
+        update public.fulfillment_clients set status = 'Ready for Round 1' where id='${CL62}';
+        select (select status from public.client_department_statuses where client_id='${CL62}' and department='Onboarding')
+          || ':' || (select count(*) from public.client_department_statuses where client_id='${CL62}' and blocked_reason is not null)::text
+          || ':' || (select status from public.client_department_statuses where client_id='${CL62}' and department='Dispute')
+          || ':' || (select count(*) from public.activity_events where entity_type='fulfillment_client' and entity_id='${CL62}' and action='Blocker cleared' and created_at >= now())::text as rows;
+        rollback;`)[0].rows, "ONBOARDING READY FOR ROUND 1:0:READY FOR ROUND 1:1"],
+    ["…and the Dispute reimport still closes Dispute as COMPLETED",
+      () => q(`begin; ${world62()}
+        update public.fulfillment_clients set status = 'Round 1 Sent' where id='${CL62}';
+        update public.fulfillment_clients set status = 'Ready for Reimport / Review' where id='${CL62}';
+        select status as rows from public.client_department_statuses where client_id='${CL62}' and department='Dispute';
+        rollback;`)[0].rows, "COMPLETED"],
     /* 20261002001000: P-013 for departments — whoever holds the work can open
        the file, even with no partner assignment and no headline. */
     ["A · an agent who holds a DEPARTMENT of a client can open it, with no partner assignment",
