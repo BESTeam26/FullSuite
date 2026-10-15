@@ -59,6 +59,10 @@ const STATUS_TONE: Record<MemberStatus, string> = {
   inactive: "border-destructive/30 bg-status-danger-tint text-status-danger",
 };
 const ALL = "__all__";
+/* The default view. Dee, 2026-10-15: "All inactive agents must be hidden by
+   default unless you show the ALL filter." Everything else — active, on
+   leave, pending activation — is the current team and stays visible. */
+const CURRENT = "__current__";
 
 const initials = (name: string) =>
   name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
@@ -74,7 +78,7 @@ export function PeopleManager() {
   const teamActions = useTeamActions();
 
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState(ALL);
+  const [status, setStatus] = useState(CURRENT);
   const [division, setDivision] = useState(ALL);
   const [teamFilter, setTeamFilter] = useState(ALL);
   const [positionFilter, setPositionFilter] = useState(ALL);
@@ -128,7 +132,7 @@ export function PeopleManager() {
     const theirTeams = teamsOf.get(m.userId) ?? [];
     const title = positionOf.get(m.userId) ?? m.jobTitle ?? "";
     if (needle && !`${m.name} ${m.email} ${title} ${theirTeams.map((t) => t.name).join(" ")}`.toLowerCase().includes(needle)) return false;
-    if (status !== ALL && statusOf(m) !== status) return false;
+    if (status === CURRENT ? statusOf(m) === "inactive" : status !== ALL && statusOf(m) !== status) return false;
     if (division !== ALL && !theirTeams.some((t) => t.division === division)) return false;
     if (teamFilter !== ALL && !theirTeams.some((t) => t.id === teamFilter)) return false;
     if (positionFilter !== ALL && title !== positionFilter) return false;
@@ -164,7 +168,7 @@ export function PeopleManager() {
               placeholder="Search people by name, role, team or skill…" aria-label="Search people" />
           </div>
           <OpsSelect aria-label="Status" size="sm" value={status} onValueChange={resetPage(setStatus)}
-            options={[{ value: ALL, label: "All statuses" }, ...(["active", "on_leave", "invited", "inactive"] as MemberStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))]} />
+            options={[{ value: CURRENT, label: "Current team" }, { value: ALL, label: "All statuses (shows inactive)" }, ...(["active", "on_leave", "invited", "inactive"] as MemberStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))]} />
           <OpsSelect aria-label="Division" size="sm" value={division} onValueChange={resetPage(setDivision)}
             options={[{ value: ALL, label: "All divisions" }, ...divisions.map((d) => ({ value: d, label: orgDivisionLabel(d) }))]} />
           <OpsSelect aria-label="Team" size="sm" value={teamFilter} onValueChange={resetPage(setTeamFilter)}
