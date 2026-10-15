@@ -706,3 +706,34 @@ export async function setPayrollSettings(input: PayrollSettings): Promise<void> 
   });
   if (error) throw error;
 }
+
+/* ── Overtime ─────────────────────────────────────────────
+ * Dee, 2026-10-15: past 8 hours, same rate, the team lead approves. An
+ * approval is a compensation adjustment the payslip already sums; the
+ * database prices it from the clock and the person's derived hourly rate
+ * (`approve_overtime`). The screen only asks; nothing is typed in.
+ */
+export interface OvertimeApproval { userId: string; day: string; amountCents: number }
+
+/** Overtime already approved in a date range — one row per person per day. */
+export async function fetchOvertimeApprovals(fromDate: string, toDate: string): Promise<OvertimeApproval[]> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("compensation_adjustments")
+    .select("user_id, effective_on, amount_cents")
+    .eq("adjustment_type", "overtime")
+    .gte("effective_on", fromDate)
+    .lte("effective_on", toDate)
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ userId: r.user_id as string, day: r.effective_on as string, amountCents: Number(r.amount_cents) }));
+}
+
+export async function approveOvertime(userId: string, day: string, note?: string): Promise<string> {
+  const sb = requireSupabase();
+  /* The generated types trail the live database until `npm run db:types`
+     runs after the migration is applied; the call is typed by hand until then. */
+  const { data, error } = await sb.rpc("approve_overtime" as never, { p_user: userId, p_day: day, p_note: note ?? null } as never);
+  if (error) throw error;
+  return data as unknown as string;
+}

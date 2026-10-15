@@ -15,6 +15,7 @@ import {
   setWorkSchedule, submitLeave,
   type PayRate, type PayrollSettings, type ScheduleInput,
   fetchPayRateBreakdown,
+  approveOvertime, fetchOvertimeApprovals,
 } from "@/lib/data/people-management";
 
 function useLive() {
@@ -131,6 +132,28 @@ export function useAttendanceRange(fromDate: string, toDate: string) {
     queryFn: () => fetchAttendance(fromDate, toDate),
     enabled: live,
     staleTime: 30_000,
+  });
+}
+
+/* ── Overtime (Dee, 2026-10-15: past 8 hours, same rate, the lead approves) ── */
+export function useOvertimeApprovals(fromDate: string, toDate: string) {
+  const { live } = useLive();
+  return useQuery({
+    queryKey: ["people", "overtime", fromDate, toDate],
+    queryFn: () => fetchOvertimeApprovals(fromDate, toDate),
+    enabled: live,
+    staleTime: 30_000,
+  });
+}
+
+export function useApproveOvertime() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { userId: string; day: string; note?: string }) => approveOvertime(v.userId, v.day, v.note),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["people", "overtime"] });
+      void qc.invalidateQueries({ queryKey: ["people", "payslips"] });
+    },
   });
 }
 

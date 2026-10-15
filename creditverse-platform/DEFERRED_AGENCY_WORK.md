@@ -1409,7 +1409,18 @@ Google is a SOURCE overlaid on it. **Do not** store anyone's Google tokens
 outside the Vault. **Do not** ship a version that silently shows nothing when
 a token expires — say it is disconnected and offer to reconnect.
 
-## D-027 — Overtime for monthly-package staff (Dee, 2026-10-15)
+## D-027 — Overtime for monthly-package staff (Dee, 2026-10-15) · DECIDED AND BUILT 2026-10-15
+
+**Dee's answers, 2026-10-15:** overtime is time past 8 hours in a day; OT pay
+is the regular rate; the Team Lead approves. Built in `20261015002000` as an
+approved compensation adjustment (`approve_overtime`): minutes from the
+clock, priced by the person's derived hourly rate, approved under the
+time-correction authority rule, one per person per day, the agent notified,
+the payslip summing it as it sums every adjustment. Lead control on People
+& Teams › Attendance (a day worked past 8 hours shows "Approve Xh Ym
+overtime"). Four named checks in phase 70. **Needs a work schedule and a
+pay arrangement on the person** — Danicko has no schedule yet (2026-10-15).
+The original note follows.
 
 **Recorded by Claude, 2026-10-15, while setting the pay arrangements.** Dee:
 *"Pay for Dan and Daniel both 25,000 package monthly, with hourly rate and

@@ -9,7 +9,7 @@ import { Loader2 } from "lucide-react";
 import { ContentCard } from "@/components/dashboard/DivisionLayout";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth/auth-context";
-import { useAttendanceRange, useLeaveActions, usePendingLeave } from "@/lib/data/use-people";
+import { useApproveOvertime, useAttendanceRange, useLeaveActions, useOvertimeApprovals, usePendingLeave } from "@/lib/data/use-people";
 import { latestPerDay, useAttendanceCorrections } from "@/lib/attendance/use-attendance-corrections";
 import { formatDuration } from "@/lib/time-domain";
 import { formatDate } from "@/lib/format-date";
@@ -108,6 +108,15 @@ const ATTENDANCE_TONE: Record<string, string> = {
 export const AttendanceCard = ({ date, names }: { date: string; names: Map<string, string> }) => {
   const attendance = useAttendanceRange(date, date);
   const corrections = useAttendanceCorrections(date, date);
+  /* Overtime (Dee, 2026-10-15): past 8 hours, same rate, the lead approves.
+     The database prices it from the clock; this only shows the minutes and
+     asks. Who may approve is the database's decision — a refusal is shown,
+     never hidden. */
+  const overtime = useOvertimeApprovals(date, date);
+  const approve = useApproveOvertime();
+  const [overtimeError, setOvertimeError] = useState<Record<string, string>>({});
+  const approvedOvertime = new Set((overtime.data ?? []).map((o) => `${o.userId}|${o.day}`));
+  const OVERTIME_AFTER_MINUTES = 8 * 60;
 
   /* A manager's correction stands over the derived day here exactly as it
      does in the quarter score — the card showed "Late" for a day already
@@ -151,6 +160,34 @@ export const AttendanceCard = ({ date, names }: { date: string; names: Map<strin
                     <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
                       {a.overlunchMinutes}m over lunch
                     </span>
+                  )}
+                  {a.workMinutes > OVERTIME_AFTER_MINUTES && (
+                    approvedOvertime.has(`${a.userId}|${a.day}`) ? (
+                      <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                        {formatDuration(a.workMinutes - OVERTIME_AFTER_MINUTES)} overtime approved
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={approve.isPending}
+                        title={overtimeError[`${a.userId}|${a.day}`]}
+                        onClick={() => {
+                          setOvertimeError((e) => ({ ...e, [`${a.userId}|${a.day}`]: "" }));
+                          approve.mutate({ userId: a.userId, day: a.day }, {
+                            onError: (err) => setOvertimeError((e) => ({ ...e, [`${a.userId}|${a.day}`]: (err as Error).message })),
+                          });
+                        }}
+                        className={cn(
+                          "rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                          "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
+                          overtimeError[`${a.userId}|${a.day}`] && "border-red-500/40 bg-red-500/10 text-red-700",
+                        )}
+                      >
+                        {overtimeError[`${a.userId}|${a.day}`]
+                          ? `Could not approve — ${overtimeError[`${a.userId}|${a.day}`]}`
+                          : `Approve ${formatDuration(a.workMinutes - OVERTIME_AFTER_MINUTES)} overtime`}
+                      </button>
+                    )
                   )}
                   <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-semibold", ATTENDANCE_TONE[a.status])}>
                     {a.status === "on_leave" && a.leaveLabel ? a.leaveLabel : ATTENDANCE_LABEL[a.status]}

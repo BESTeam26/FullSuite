@@ -7200,6 +7200,38 @@ if (runs(70)) {
         select public.eod_auto_submit_sweep();
         select public.eod_auto_submit_sweep() as rows`), 0],
 
+    /* 20261015002000: overtime past 8 hours, approved by the lead, paid at
+       the regular rate as a compensation adjustment. The agent is given a
+       schedule and a monthly package inside the transaction so the engine
+       can derive an hourly rate; the 9-hour day is a clock entry. */
+    ["a lead approves a 9-hour day: 60 minutes of overtime priced at the derived hourly rate",
+      () => p70(PAY70, `${OWN_CALENDAR}
+        select public.set_compensation_arrangement('${AGENT70}', 'direct_bes', 'monthly', 2400000, 2400000, null, 'PHP', current_date - 90, 'Probe');
+        select public.set_work_schedule('${AGENT70}', '{1,2,3,4,5}', '09:00', '18:00', 60, 30, 5, 'America/New_York', current_date - 90);
+        set local role postgres; select set_config('bes.time_system', '1', true);
+        insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
+          values ('${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '50 hours', now() - interval '50 hours' + interval '540 minutes');
+        select set_config('bes.time_system', '', true);
+        set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}'; set local role authenticated;
+        select public.approve_overtime('${AGENT70}', current_date - 2, 'probe');
+        select (amount_cents = round(60 * (select hourly_cents from public.pay_rate_breakdown('${AGENT70}', current_date - 2)) / 60.0))::text
+             || ':' || financial_scope || ':' || (approved_by = '${LEAD70}')::text as rows
+          from public.compensation_adjustments where user_id = '${AGENT70}' and adjustment_type = 'overtime'`), "true:both:true"],
+    ["…exactly 8 hours is not overtime",
+      () => p70(PAY70, `${OWN_CALENDAR}
+        select public.set_compensation_arrangement('${AGENT70}', 'direct_bes', 'monthly', 2400000, 2400000, null, 'PHP', current_date - 90, 'Probe');
+        select public.set_work_schedule('${AGENT70}', '{1,2,3,4,5}', '09:00', '18:00', 60, 30, 5, 'America/New_York', current_date - 90);
+        set local role postgres; select set_config('bes.time_system', '1', true);
+        insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
+          values ('${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '50 hours', now() - interval '50 hours' + interval '480 minutes');
+        select set_config('bes.time_system', '', true);
+        set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}'; set local role authenticated;
+        select public.approve_overtime('${AGENT70}', current_date - 2, null) as rows`), "ERR 22023"],
+    ["…an agent cannot approve their own, and staff outside the team cannot approve theirs",
+      () => p70(AGENT70, `select public.approve_overtime('${AGENT70}', current_date - 2, null) as rows`), "ERR 42501"],
+    ["…nor can staff from another division",
+      () => p70(FUND70, `select public.approve_overtime('${AGENT70}', current_date - 2, null) as rows`), "ERR 42501"],
+
     /* 20261014003000: test work never reaches a real person's attention.
        Run as a REAL active owner from the roster (the fixtures must keep
        seeing fixture work, so a fixture subject could not prove this). The
