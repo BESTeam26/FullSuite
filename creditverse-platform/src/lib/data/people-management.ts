@@ -731,9 +731,7 @@ export async function fetchOvertimeApprovals(fromDate: string, toDate: string): 
 
 export async function approveOvertime(userId: string, day: string, note?: string): Promise<string> {
   const sb = requireSupabase();
-  /* The generated types trail the live database until `npm run db:types`
-     runs after the migration is applied; the call is typed by hand until then. */
-  const { data, error } = await sb.rpc("approve_overtime" as never, { p_user: userId, p_day: day, p_note: note ?? null } as never);
+  const { data, error } = await sb.rpc("approve_overtime", { p_user: userId, p_day: day, p_note: note ?? null });
   if (error) throw error;
-  return data as unknown as string;
+  return data as string;
 }

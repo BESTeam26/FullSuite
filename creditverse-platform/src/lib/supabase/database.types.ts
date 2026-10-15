@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   graphql_public: {
     Tables: {
@@ -18588,6 +18588,10 @@ export type Database = {
         Returns: undefined
       }
       approve_dispute_letter: { Args: { p_letter: string }; Returns: undefined }
+      approve_overtime: {
+        Args: { p_day: string; p_note?: string; p_user: string }
+        Returns: string
+      }
       archive_announcement: { Args: { p_id: string }; Returns: undefined }
       archive_knowledge_article: { Args: { p_id: string }; Returns: undefined }
       archive_organization_department: {
@@ -18741,6 +18745,10 @@ export type Database = {
         Args: { p_agency_slug?: string; p_email: string }
         Returns: string
       }
+      can_manage_time_of: {
+        Args: { p_agency: string; p_user: string }
+        Returns: boolean
+      }
       can_preview_as_user: { Args: never; Returns: boolean }
       can_see_partner: { Args: { p_group: string }; Returns: boolean }
       can_view_activity: {
@@ -18755,6 +18763,10 @@ export type Database = {
       can_view_fulfillment_client: { Args: { p_org: string }; Returns: boolean }
       can_view_funding_client: { Args: { p_org: string }; Returns: boolean }
       can_view_org: { Args: { p_org: string }; Returns: boolean }
+      can_view_time_of: {
+        Args: { p_agency: string; p_user: string }
+        Returns: boolean
+      }
       can_view_work: {
         Args: {
           p_org: string
@@ -19385,6 +19397,7 @@ export type Database = {
           still_unassigned: number
         }[]
       }
+      creditops_client_list: { Args: never; Returns: Json }
       creditops_closed_status_for: {
         Args: {
           p_department: Database["public"]["Enums"]["fulfillment_department"]
@@ -19424,6 +19437,7 @@ export type Database = {
           state: string
         }[]
       }
+      creditops_coverage_states_all: { Args: never; Returns: Json }
       creditops_custom_values: {
         Args: { p_group?: string }
         Returns: {
@@ -19466,6 +19480,10 @@ export type Database = {
           status: string
           updated_at: string
         }[]
+      }
+      creditops_department_rows_all: {
+        Args: { p_group?: string }
+        Returns: Json
       }
       creditops_department_scope_client_ids: { Args: never; Returns: string[] }
       creditops_department_statuses: {
@@ -19763,6 +19781,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["agency_role"]
       }
+      cutoff_is_released: { Args: { p_cutoff: string }; Returns: boolean }
       deal_status_for_decision: {
         Args: {
           p_decision: Database["public"]["Enums"]["lender_decision_kind"]
@@ -19933,6 +19952,7 @@ export type Database = {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: boolean
       }
+      eod_auto_submit_sweep: { Args: never; Returns: number }
       eod_day_activity: {
         Args: { p_date: string; p_employee: string }
         Returns: Json
@@ -20060,6 +20080,10 @@ export type Database = {
         Args: { p_engagement: string }
         Returns: string
       }
+      fulfillment_client_readable: {
+        Args: { p_client: string }
+        Returns: boolean
+      }
       fulfillment_department_key: {
         Args: { p_department: string }
         Returns: string
@@ -20159,7 +20183,9 @@ export type Database = {
         Args: { p_agency: string; p_user: string }
         Returns: boolean
       }
+      has_payroll_scope: { Args: { p_agency: string }; Returns: boolean }
       holds_management_view: { Args: { p_agency: string }; Returns: boolean }
+      holds_operations_seat: { Args: { p_agency: string }; Returns: boolean }
       hub_module_active: {
         Args: { p_module: string; p_org: string }
         Returns: boolean
@@ -20240,6 +20266,7 @@ export type Database = {
       is_client_of: { Args: { p_client: string }; Returns: boolean }
       is_external_member: { Args: { p_org: string }; Returns: boolean }
       is_financial_report: { Args: { p_kind: string }; Returns: boolean }
+      is_fixture_client: { Args: { p_client: string }; Returns: boolean }
       is_lender_for_file: { Args: { p_file: string }; Returns: boolean }
       is_manager_of: { Args: { p_agency: string }; Returns: boolean }
       is_member_of_team: { Args: { p_team: string }; Returns: boolean }
@@ -20249,11 +20276,23 @@ export type Database = {
       is_owner_of: { Args: { p_agency: string }; Returns: boolean }
       is_partner_contact_of: { Args: { p_group: string }; Returns: boolean }
       is_portal_client: { Args: never; Returns: boolean }
+      is_real_person: { Args: { p_user: string }; Returns: boolean }
       is_service_caller: { Args: never; Returns: boolean }
       is_staff_of: { Args: { p_agency: string }; Returns: boolean }
       is_team_lead_of: { Args: { p_team: string }; Returns: boolean }
       kpi_match_sql: { Args: { p_match: Json }; Returns: string }
+      leadership_scopes: {
+        Args: never
+        Returns: {
+          leader_id: string
+          member_id: string
+        }[]
+      }
       lender_editable: { Args: { p_lender: string }; Returns: boolean }
+      lender_row_visible: {
+        Args: { p_agency: string; p_lender: string; p_org: string }
+        Returns: boolean
+      }
       lender_visible: { Args: { p_lender: string }; Returns: boolean }
       letter_prohibited_phrase: { Args: { p_body: string }; Returns: string }
       letter_template_editable: {
@@ -20320,6 +20359,10 @@ export type Database = {
         Returns: string
       }
       manager_of: { Args: { p_user: string }; Returns: string }
+      manages_agent_payroll_of: {
+        Args: { p_agency: string; p_user: string }
+        Returns: boolean
+      }
       manages_private_record_of: { Args: { p_user: string }; Returns: boolean }
       map_ghl_location: {
         Args: {
@@ -20477,6 +20520,7 @@ export type Database = {
           state: string
         }[]
       }
+      my_managed_agency_ids: { Args: never; Returns: string[] }
       my_org_ids: { Args: never; Returns: string[] }
       my_partner_account_credit: {
         Args: never
@@ -20573,6 +20617,13 @@ export type Database = {
           suspended: boolean
           suspended_at: string
           suspension_detail: string
+        }[]
+      }
+      my_partner_billing_contact: {
+        Args: never
+        Returns: {
+          email: string
+          name: string
         }[]
       }
       my_partner_card: {
@@ -20710,6 +20761,29 @@ export type Database = {
           used: number
         }[]
       }
+      my_partner_feed: {
+        Args: { p_kind?: string; p_limit?: number }
+        Returns: {
+          detail: string
+          happened_at: string
+          href: string
+          kind: string
+          title: string
+        }[]
+      }
+      my_partner_files: {
+        Args: never
+        Returns: {
+          created_at: string
+          from_partner: boolean
+          id: string
+          mime_type: string
+          name: string
+          path: string
+          shared_at: string
+          size_bytes: number
+        }[]
+      }
       my_partner_invoices: {
         Args: never
         Returns: {
@@ -20724,6 +20798,18 @@ export type Database = {
           period_key: string
           status: string
           total_cents: number
+        }[]
+      }
+      my_partner_milestones: {
+        Args: never
+        Returns: {
+          completed_at: string
+          engine_label: string
+          id: string
+          label: string
+          link_url: string
+          project_id: string
+          scheduled_at: string
         }[]
       }
       my_partner_onboarding_complete: {
@@ -20773,6 +20859,18 @@ export type Database = {
       }
       my_partner_profile: { Args: never; Returns: Json }
       my_partner_profile_save: { Args: { p: Json }; Returns: undefined }
+      my_partner_project_engines: {
+        Args: never
+        Returns: {
+          completed: number
+          engine_key: string
+          label: string
+          percent: number
+          project_id: string
+          stage: string
+          units: number
+        }[]
+      }
       my_partner_projects: {
         Args: never
         Returns: {
@@ -20786,6 +20884,10 @@ export type Database = {
           target_go_live: string
           went_live_at: string
         }[]
+      }
+      my_partner_record_upload: {
+        Args: { p_mime: string; p_name: string; p_path: string; p_size: number }
+        Returns: string
       }
       my_partner_requirements: {
         Args: never
@@ -20817,6 +20919,19 @@ export type Database = {
           service_label: string
           started_on: string
           status: string
+        }[]
+      }
+      my_partner_shared_client_files: {
+        Args: never
+        Returns: {
+          client_name: string
+          client_public_id: string
+          id: string
+          mime_type: string
+          name: string
+          path: string
+          shared_at: string
+          size_bytes: number
         }[]
       }
       my_partner_team: {
@@ -20857,6 +20972,12 @@ export type Database = {
         }[]
       }
       my_reach_team_ids: { Args: { p_agency: string }; Returns: string[] }
+      my_released_cutoff_ids: {
+        Args: never
+        Returns: {
+          cutoff_id: string
+        }[]
+      }
       my_saved_messages: {
         Args: { p_limit?: number }
         Returns: {
@@ -20870,6 +20991,7 @@ export type Database = {
           saved_at: string
         }[]
       }
+      my_staff_agency_ids: { Args: never; Returns: string[] }
       my_visible_client_ids: { Args: never; Returns: string[] }
       my_visible_organization_ids: { Args: never; Returns: string[] }
       my_visible_partner_ids: { Args: never; Returns: string[] }
@@ -21162,6 +21284,10 @@ export type Database = {
       }
       partner_is_suspended: { Args: { p_group: string }; Returns: boolean }
       partner_portal_eligible: { Args: { p_group: string }; Returns: boolean }
+      partner_shared_client_object: {
+        Args: { p_name: string }
+        Returns: boolean
+      }
       partner_topic_channel: {
         Args: { p_group: string; p_topic: string }
         Returns: string
@@ -21197,10 +21323,17 @@ export type Database = {
       }
       payroll_auto_sweep: { Args: never; Returns: undefined }
       payroll_generate_internal: { Args: { p_cutoff: string }; Returns: number }
+      payroll_people: {
+        Args: never
+        Returns: {
+          user_id: string
+        }[]
+      }
       payroll_recompute_for_entry: {
         Args: { p_entry: Database["public"]["Tables"]["time_entries"]["Row"] }
         Returns: undefined
       }
+      placement_people: { Args: never; Returns: string[] }
       publish_holiday_announcement: {
         Args: {
           p_agency: string
@@ -22018,6 +22151,7 @@ export type Database = {
           reactions: Json
         }[]
       }
+      time_wide_agency_ids: { Args: never; Returns: string[] }
       timer_cap: { Args: never; Returns: string }
       to_service: {
         Args: { p: string }
@@ -22028,6 +22162,7 @@ export type Database = {
         Returns: undefined
       }
       try_bigint: { Args: { t: string }; Returns: number }
+      try_uuid: { Args: { p: string }; Returns: string }
       unresolved_document_tokens: {
         Args: { p_body: string; p_context: Json }
         Returns: string[]
