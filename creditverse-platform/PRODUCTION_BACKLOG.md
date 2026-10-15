@@ -260,6 +260,16 @@ could make on its own; all three were hers, and she answered them directly.
 
 ## HUMAN GATE — needs Dee or a real operator
 
+- **Three CreditOps rules from Dee, 2026-10-15, AWAITING RELEASE:** (1)
+  Ready for Processing / Ready for Round 1 / Prio Processing close
+  Onboarding with its own closed status and clear every blocker on the
+  file (`20261015004000`; four already-ready files, Leslie included, caught
+  up by the migration); (2) a GHL form pasted into Activity keeps its table
+  shape; (3) adding a client opens its file instead of returning to the
+  list. HUMAN TEST REQUIRED after release: Dee pastes a GHL form into
+  Leslie's Activity and sees a table; adds a client and lands on its file;
+  moves a file to Ready for Round 1 and sees Onboarding close.
+
 - **Inactive people out of every picker and off every file (Dee, 2026-10-15:
   "remove from the options and all work everyone that is inactive").**
   `20261015003000` releases the 635 department rows and 585 client files
