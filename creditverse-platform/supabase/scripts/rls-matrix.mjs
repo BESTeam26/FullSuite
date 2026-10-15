@@ -7179,6 +7179,19 @@ if (runs(70)) {
     ["…while a fixture owner still sees the fixture work the matrix relies on",
       () => p70(U["bes.owner@bes.test"], `select (count(*) > 0)::text as rows from public.work_attention a join public.work_items w on w.id = a.id where coalesce(w.is_fixture, false)`), "true"],
 
+    /* 20261014004000: archiving a BES CRM project archives its open work,
+       and archived work never asks for attention. */
+    ["archiving a project takes its overdue units out of the attention list",
+      () => p70(U["bes.owner@bes.test"], `insert into public.crm_projects (id, agency_id, partner_group_id, name, started_on)
+          select '99999999-0000-4000-8000-00000000c0a1', '${AG70}', g.id, '[PROBE] archive', current_date
+            from public.outsourcing_groups g where g.name like '[TEST]%' limit 1;
+        insert into public.work_items (id, agency_id, scope, division, related_type, related_ref, title, stage, due_at)
+          values ('99999999-0000-4000-8000-00000000c0b1', '${AG70}', 'AGENCY', 'bes_crm', 'project', '99999999-0000-4000-8000-00000000c0a1', '[PROBE] unit', 'Queued', now() - interval '1 day');
+        select (select count(*) from public.work_attention where id = '99999999-0000-4000-8000-00000000c0b1')::text
+          || ':' || (select public.crm_project_archive('99999999-0000-4000-8000-00000000c0a1', 'probe')::text)
+          || (select count(*) from public.work_attention where id = '99999999-0000-4000-8000-00000000c0b1')::text
+          || ':' || (select (archived_at is not null)::text from public.work_items where id = '99999999-0000-4000-8000-00000000c0b1') as rows`), "1:0:true"],
+
     /* ── member documents (0273): HR paper is a capability, never staff status ── */
     ["adding a team member document needs the documents capability",
       () => p70(ADM70, `set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
