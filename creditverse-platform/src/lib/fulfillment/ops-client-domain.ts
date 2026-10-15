@@ -229,8 +229,13 @@ export const clientGroupLabel = (c: OpsClient): string =>
 /* import, a future API — enforces exactly the same rule.              */
 /* ------------------------------------------------------------------ */
 
-export const normalizeEmail = (email: string): string =>
-  email.trim().toLowerCase();
+/* Null-safe on purpose: 498 live clients (ClickUp imports, 2026-10-15) have
+   no email on record, and the duplicate check walks every loaded client.
+   Calling .trim() on one of them threw inside the Add Client click and
+   the dialog died silently — Dee: "the Add Client here is not working".
+   An empty email is never a match. */
+export const normalizeEmail = (email: string | null | undefined): string =>
+  (email ?? "").trim().toLowerCase();
 
 export interface ClientConflictResult<T extends OpsClient = OpsClient> {
   /** Same email already exists in the SAME partner scope → hard block. */

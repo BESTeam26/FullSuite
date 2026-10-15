@@ -71,7 +71,8 @@ export function mapFundingClientRow(row: ClientRow): FundingClient {
   return {
     id: row.id,
     name: row.name,
-    email: row.email,
+    /* Never null past this point — same reason as fulfillment-clients.ts. */
+    email: row.email ?? "",
     phone: row.phone ?? undefined,
     mode: row.mode,
     provenance: row.provenance as FundingProvenance,

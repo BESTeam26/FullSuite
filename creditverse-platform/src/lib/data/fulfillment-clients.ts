@@ -71,7 +71,10 @@ export function mapClientRow(row: ClientRow): FulfillmentClient {
   return {
     id: row.id,
     name: row.name,
-    email: row.email,
+    /* Never null past this point: 498 imported clients have no email, and
+       every search and duplicate check downstream calls string methods on
+       it (2026-10-15 — Add Client died on one of them). */
+    email: row.email ?? "",
     phone: row.phone ?? undefined,
     mode: row.mode,
     organizationId: row.organization_id ?? undefined,
