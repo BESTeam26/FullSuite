@@ -333,6 +333,31 @@ could make on its own; all three were hers, and she answered them directly.
   Partner" portal contact from 2026-09-12 — so its sign-in is disabled and
   the contact archived.
 
+- **CreditOps locked for every active agent (Dee, 2026-10-15: "ensure all
+  working functions are LOCKED and don't make them not working again").**
+  `supabase/scripts/creditops-agent-walk.mjs` (`npm run probe:agents`, part
+  of `npm run gate`) walks every write of an agent's day as every ACTIVE
+  agent on the live roster against every partner with files — open a file,
+  change credit status, set own department status, log production, hand
+  off, post a note, attach a file, edit contact, clock in, submit EOD, add a
+  client on each partner — all rolled back; one refusal fails the gate.
+  2026-10-15: 116/116 across Kaori, Danicko, Daniel, Ivan and 18 partners.
+  Two regressions from the same day's releases were found by the full
+  matrix and fixed, DEPLOYED: (1) `20261015010000` — the inactive-person
+  guard treated a customer organization's own processors (org membership,
+  no agency membership) as inactive and refused every assignment to them;
+  (2) `20261015012000` — the routing rewrite in `20261015004000` had
+  dropped P-037 (a new client's chosen agent seeds its first department row
+  as a manual override), so Add Client with an agent chosen lost the choice
+  to the department's own rule. `20261015011000` makes the handoff row
+  check self-contained (no definer leaning on an invoker helper). Matrix
+  phases 37, 62, 70 green; 47 re-running after hours (its readable-rule
+  checks time out under daytime load). **The full 78-phase matrix was
+  stopped mid-run at 881 green / 10 red because it was loading the live
+  database during the workday (Kaori: "app not loading properly"); the ten
+  reds are the two regressions above, the scoped FundingOps-production
+  probe, and statement timeouts. Re-run the full gate after hours only.**
+
 - **Slow season team shape (Dee, 2026-10-15: "All support to Kaori. All
   dispute to Dan and Daniel. All complaints to Ivan. Everyone reports to
   Dee. We removed all other teams.").** RUN 2026-10-15 by
