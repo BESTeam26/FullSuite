@@ -126,15 +126,20 @@ Last reconciled: 2026-10-01, after the full review (stale entries corrected agai
   reads "Due today by midnight"; the reminder goes out at 11:30 PM ET. The
   cutoff's own "overdue" nudge cannot fire for a midnight cutoff (the sweep
   compares the time of day) — the next-morning nudge is a small follow-up if
-  Dee wants it. **`eod_auto_submit` is still OFF** — Dee to decide whether
-  an unsubmitted day is auto-submitted at midnight (the app calls
-  `eod_run_cutoff` when the EOD page opens; there is no scheduled job, so
-  turning it on also means scheduling one).
+  Dee wants it. **Auto-submit: DECIDED by Dee 2026-10-15 — YES, "then tag
+  as AUTO Submitted so management and the agent is aware."** Built in
+  `20261015001000`: the flag goes on, `eod_auto_submit_sweep()` runs every
+  15 minutes by cron, submits drafts left past the cutoff from 2026-10-15
+  onward (four older real drafts stay as they are), marks them
+  Auto-submitted (already labelled so on Agent EOD, Team EOD, member
+  profile and rollup), and notifies the agent and every lead of their
+  teams. Proven in rolled-back transactions; two named checks in phase 70.
+  AWAITING RELEASE.
 
 | # | Item | Why it matters today |
 |---|---|---|
-| N-1 | **Bureau Calling team has no members** | The queue routes work to a team with nobody on it; files would sit unassigned. Needs Dee to place somebody, or the queue stays empty by choice. |
-| N-2 | **3 active staff still need a pay arrangement**: Danicko Carl P. Macasiab, Daniel Charles P. Macasiab, Ivan L. Olympia (live count 2026-10-15; Bryan Breva has one; **Dee and Aaron skipped on Dee's instruction, 2026-10-15 — "we'll have their payroll later"**) | Payroll skips anyone without one: they get no payslip at all. Set from People › a person › Compensation, or give Claude per person: arrangement (direct BES / via managing partner), basis (hourly · daily · monthly · per cutoff), rate, start date. |
+| N-1 | ~~**Bureau Calling team has no members**~~ — **DECIDED by Dee 2026-10-15: "leave it empty on purpose."** | The queue stays unstaffed by choice; files routed there sit unassigned until Dee places somebody. Not a defect. |
+| N-2 | ~~Pay arrangements~~ — **SET 2026-10-15 by Dee's instruction**, as Dee, through `set_compensation_arrangement`: Danicko and Daniel ₱25,000/month, Ivan ₱20,000/month, direct BES, PHP, effective 2026-10-01 (the current Oct 1–15 cutoff — Dee: "following same cutoff of the payroll"). Dee and Aaron skipped ("we'll have their payroll later"). **Open:** Dee also said "with hourly rate and Overtime Approve" — the engine has no overtime concept (nothing in code or schema); a monthly arrangement already yields a derived hourly rate for partial days. Needs Dee's definition of overtime before anything is built (D-027). | Payroll skips anyone without one: they get no payslip at all. Set from People › a person › Compensation, or give Claude per person: arrangement (direct BES / via managing partner), basis (hourly · daily · monthly · per cutoff), rate, start date. |
 | N-4 | **Four expired, unaccepted invitations remain** (live count, 2026-10-01; everyone named on 09-21 is now active) | Housekeeping only: revoke them or resend if any is still wanted. |
 
 

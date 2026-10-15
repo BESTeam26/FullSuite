@@ -7178,6 +7178,28 @@ if (runs(70)) {
         set local request.jwt.claims = '{"sub":"${FUND70}","role":"authenticated"}';
         select count(*)::int as rows from public.eod_submissions where employee_id = '${AGENT70}' and work_date = (now() at time zone 'America/New_York')::date`), 0],
 
+    /* 20261015001000: an unsubmitted EOD is auto-submitted at the cutoff,
+       tagged, and the agent and their leads are told. The cutoff is moved to
+       00:00 inside the probe's own transaction so the Eastern day's draft is
+       already past it; nothing outside the transaction changes. */
+    ["a draft left past the cutoff is auto-submitted, tagged, and the agent and lead are told",
+      () => p70(AGENT70, `insert into public.eod_submissions (agency_id, employee_id, work_date, state)
+          values ('${AG70}', '${AGENT70}', (now() at time zone 'America/New_York')::date, 'draft');
+        set local role postgres;
+        update public.agencies set eod_cutoff_local = '00:00:00', eod_auto_submit = true where id = '${AG70}';
+        select public.eod_auto_submit_sweep();
+        select (select auto_submitted and submitted_at is not null and submitted_by is null from public.eod_submissions
+                 where employee_id = '${AGENT70}' and work_date = (now() at time zone 'America/New_York')::date)::text
+          || ':' || (select count(*) from public.notifications where created_at >= now() and entity_type = 'eod_day' and recipient_id = '${AGENT70}')::text
+          || ':' || (select count(*) from public.notifications where created_at >= now() and entity_type = 'eod_day' and recipient_id = '${LEAD70}')::text as rows`), "true:1:1"],
+    ["…and a second sweep touches nothing",
+      () => p70(AGENT70, `insert into public.eod_submissions (agency_id, employee_id, work_date, state)
+          values ('${AG70}', '${AGENT70}', (now() at time zone 'America/New_York')::date, 'draft');
+        set local role postgres;
+        update public.agencies set eod_cutoff_local = '00:00:00', eod_auto_submit = true where id = '${AG70}';
+        select public.eod_auto_submit_sweep();
+        select public.eod_auto_submit_sweep() as rows`), 0],
+
     /* 20261014003000: test work never reaches a real person's attention.
        Run as a REAL active owner from the roster (the fixtures must keep
        seeing fixture work, so a fixture subject could not prove this). The

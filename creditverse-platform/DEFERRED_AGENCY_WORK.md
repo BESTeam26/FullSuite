@@ -1408,3 +1408,21 @@ active epic.
 Google is a SOURCE overlaid on it. **Do not** store anyone's Google tokens
 outside the Vault. **Do not** ship a version that silently shows nothing when
 a token expires — say it is disconnected and offer to reconnect.
+
+## D-027 — Overtime for monthly-package staff (Dee, 2026-10-15)
+
+**Recorded by Claude, 2026-10-15, while setting the pay arrangements.** Dee:
+*"Pay for Dan and Daniel both 25,000 package monthly, with hourly rate and
+Overtime Approve."* The arrangements are set (monthly, PHP, direct BES).
+The payroll engine has **no overtime concept** — nothing in the schema or
+code (`compensation_arrangements`, `member_pay_rates`, `payable_minutes`,
+`generate_payroll`); a monthly basis already derives an hourly figure for
+partial days (`rate × 12 / days_per_year`, then per minute). Nothing built.
+
+**Decision needed from Dee:** what counts as overtime (beyond the
+schedule's shift end? beyond 8 hours a day? beyond a monthly total?), who
+approves it (team lead in scope, same as time adjustments?), and at what
+rate (the derived hourly × 1.25? a flat amount?). With those three answers
+this is a bounded change: an approval-based adjustment kind alongside the
+existing `time_adjustment_requests`, priced by the arrangement — never a
+second pay engine (rules 2, 5; `people-management-state`).
