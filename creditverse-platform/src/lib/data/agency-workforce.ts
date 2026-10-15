@@ -7,7 +7,19 @@
 import { requireSupabase } from "@/lib/supabase/client";
 import type { Enums } from "@/lib/supabase/database.types";
 
-export interface AgencyPerson { userId: string; name: string; email: string; role: Enums<"agency_role">; since: string }
+/**
+ * Who may be offered in ANY assignment picker: members with a name who are
+ * not deactivated. Dee, 2026-10-15: "remove from the options … everyone
+ * that is inactive". The database refuses an inactive assignee too
+ * (20261015003000); this keeps every picker honest so nobody is offered a
+ * choice that will be refused. A plain function in the data module, not the
+ * hook file, so a test that replaces the hooks keeps the rule.
+ */
+export function assignablePeople<T extends { name: string; status?: string }>(people: readonly T[] | undefined): T[] {
+  return (people ?? []).filter((p) => p.name && p.status !== "inactive");
+}
+
+export interface AgencyPerson { userId: string; name: string; email: string; role: Enums<"agency_role">; since: string; /** 'active' or 'inactive' — a deactivated person stays on the roster for history and never in an assignment picker (Dee, 2026-10-15). */ status: string }
 export interface AgencyTeam { id: string; name: string; departmentId: string | null; department: string | null; division: string | null; members: { userId: string; isLead: boolean }[]; archived: boolean }
 export interface WeekTime { employeeId: string; minutes: number; running: boolean; /** The most recent clock-in this week, or null. */ lastActiveAt: string | null }
 export interface Workforce { people: AgencyPerson[]; teams: AgencyTeam[]; time: WeekTime[]; weekStart: string }
@@ -39,7 +51,7 @@ export async function fetchWorkforce(now: Date = new Date()): Promise<Workforce>
     /* `profiles!inner` so the fixture filter can apply to the joined row:
        the matrix's @bes.test accounts are real memberships, and a beta tester
        should not find them in the roster or be able to assign work to them. */
-    sb.from("agency_memberships").select("user_id, role, created_at, profiles!user_id!inner(full_name, email, is_fixture)").eq("profiles.is_fixture", false).order("created_at").limit(500),
+    sb.from("agency_memberships").select("user_id, role, status, created_at, profiles!user_id!inner(full_name, email, is_fixture)").eq("profiles.is_fixture", false).order("created_at").limit(500),
     /* `is_fixture` excluded here for the same reason the member query excludes
        fixture profiles: the matrix's teams are real rows, and a beta tester
        should not find "[TEST] Team A" in their roster. */
@@ -51,7 +63,7 @@ export async function fetchWorkforce(now: Date = new Date()): Promise<Workforce>
   for (const t of time.data ?? []) { const cur = byEmp.get(t.employee_id) ?? { employeeId: t.employee_id, minutes: 0, running: false, lastActiveAt: null }; cur.minutes += t.duration_minutes ?? 0; if (t.ended_at === null) cur.running = true; if (!cur.lastActiveAt || t.started_at > cur.lastActiveAt) cur.lastActiveAt = t.started_at; byEmp.set(t.employee_id, cur); }
   return {
     weekStart: weekStart.toISOString(),
-    people: (members.data ?? []).map((m) => { const p = m.profiles as { full_name: string | null; email: string } | null; return { userId: m.user_id, name: p?.full_name?.trim() || p?.email || "Team member", email: p?.email ?? "", role: m.role, since: m.created_at }; }),
+    people: (members.data ?? []).map((m) => { const p = m.profiles as { full_name: string | null; email: string } | null; return { userId: m.user_id, name: p?.full_name?.trim() || p?.email || "Team member", email: p?.email ?? "", role: m.role, since: m.created_at, status: (m as { status?: string | null }).status ?? "active" }; }),
     teams: (teams.data ?? []).map((t) => { const d = t.departments as { name: string; division: string } | null; /* The id as well as the name: a department is looked up by id, never by
    what it is called, so renaming one in Settings changes nothing (rule 4). */
 return { id: t.id, name: t.name, departmentId: t.department_id ?? null, department: d?.name ?? null, division: d?.division ?? null, archived: t.archived_at !== null, members: ((t.team_memberships ?? []) as { user_id: string; is_lead: boolean }[]).map((x) => ({ userId: x.user_id, isLead: x.is_lead })) }; }),

@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format-date";
 import { useAgencyPermissions } from "@/lib/data/agency-permissions";
 import { useWorkforce } from "@/lib/data/use-workforce";
+import { assignablePeople } from "@/lib/data/agency-workforce";
 import { useCreditOpsStore } from "@/lib/fulfillment/creditops-client-store";
 import { patchCachedClient } from "@/lib/fulfillment/creditops-client-cache";
 import { queueCountsKey } from "@/lib/data/use-queue-counts";
@@ -66,7 +67,8 @@ export function ClientAssignmentCard({ clientId }: { clientId: string }) {
   const canOverride = perms.can("ops.manage");
   if (!client) return null;
 
-  const people = workforce.data?.people ?? [];
+  /* Active people only: a deactivated member is never offered (Dee, 2026-10-15). */
+  const people = assignablePeople(workforce.data?.people);
   /* A write here changes this file's routing, its queue and its progress —
      never the whole client list. Invalidating ["creditops"] used to refetch
      1,000+ clients, every checklist and every count after one dropdown. */

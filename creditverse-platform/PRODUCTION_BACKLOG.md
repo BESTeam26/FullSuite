@@ -260,6 +260,19 @@ could make on its own; all three were hers, and she answered them directly.
 
 ## HUMAN GATE — needs Dee or a real operator
 
+- **Inactive people out of every picker and off every file (Dee, 2026-10-15:
+  "remove from the options and all work everyone that is inactive").**
+  `20261015003000` releases the 635 department rows and 585 client files
+  still held by deactivated staff (Jet Manugas 395), refuses an inactive
+  assignee from then on (a person's explicit choice is refused with a
+  message; a system pick is released with the reason), and makes
+  deactivation release the person's open work. Every picker reads
+  `assignablePeople()` — active members only. AWAITING RELEASE.
+  **Still Dee's:** Onboarding routes to the Client Success / Support team,
+  whose three members are all inactive, so no Onboarding file (Leslie
+  Caudillo Zamora included) can be assigned until Dee places an active
+  person on that team (People & Teams › Structure), or tells Claude who.
+
 - **CreditOps · Add Client inside a partner workspace (Dee, 2026-10-15:
   "FIX THE ADD CLIENT HERE. IT's not working!").** DEPLOYED 2026-10-15
   (`f288302`). The duplicate-email check threw on one of the 498 imported

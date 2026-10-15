@@ -296,6 +296,7 @@ function AssigneeCell({ department, value, valueName, onSave }: {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const UNASSIGNED = "__unassigned__";
+  const NOBODY_ACTIVE = "__nobody_active__";
 
   if (editing) {
     return (
@@ -307,6 +308,14 @@ function AssigneeCell({ department, value, valueName, onSave }: {
         value={value ?? UNASSIGNED}
         options={[
           { value: UNASSIGNED, label: "Unassigned" },
+          /* An empty roster is a fact worth stating: the department's team
+             has no active members, so there is nobody to choose. Dee,
+             2026-10-15, on an Onboarding file whose team had all left:
+             "I cant choose active Agents here". The people come from
+             People & Teams › Structure, not from this list. */
+          ...(roster.length === 0
+            ? [{ value: NOBODY_ACTIVE, label: `No active people on the ${department} team — add them under People & Teams › Structure` }]
+            : []),
           ...roster.map((m) => ({
             value: m.id,
             label: `${m.name}${m.activeFiles > 0 ? ` · ${m.activeFiles} open` : ""}`,
@@ -314,6 +323,7 @@ function AssigneeCell({ department, value, valueName, onSave }: {
         ]}
         onDismiss={() => setEditing(false)}
         onValueChange={(next) => {
+          if (next === NOBODY_ACTIVE) { setEditing(false); return; }
           setSaving(true);
           void onSave(next === UNASSIGNED ? null : next)
             .finally(() => { setSaving(false); setEditing(false); });

@@ -16,6 +16,7 @@ import {
 import type { FundingClient } from "@/lib/fulfillment/fundingops-domain";
 import type { FundingOpsPartner } from "@/lib/fulfillment/fundingops-partners";
 import { useWorkforce } from "@/lib/data/use-workforce";
+import { assignablePeople } from "@/lib/data/agency-workforce";
 import { OpsAddClientModal } from "./OpsAddClientModal";
 
 const STATUS_OPTIONS = [
@@ -51,7 +52,7 @@ export function FundingAddClientModal({
   const roster = useWorkforce({ enabled: open });
   const assignees = [
     ...FUNDING_ELIGIBLE_ASSIGNEES,
-    ...(roster.data?.people ?? []).map((x) => x.name).filter(Boolean),
+    ...assignablePeople(roster.data?.people).map((x) => x.name),
   ];
   const store = useFundingOpsStore();
   const [requested, setRequested] = useState("");

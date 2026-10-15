@@ -7232,6 +7232,34 @@ if (runs(70)) {
     ["…nor can staff from another division",
       () => p70(FUND70, `select public.approve_overtime('${AGENT70}', current_date - 2, null) as rows`), "ERR 42501"],
 
+    /* 20261015003000: an inactive person holds no work and is never offered
+       any. The fixture agent is deactivated inside the probe's transaction. */
+    ["a lead's explicit choice of an inactive person is refused",
+      () => p70(ADM70, `set local role postgres;
+        update public.agency_memberships set status = 'inactive' where user_id = '${AGENT70}';
+        update public.client_department_statuses s set assignee_id = '${AGENT70}', assignment_method = 'manual_override'
+          from public.fulfillment_clients c where c.id = s.client_id and c.is_fixture and s.client_id = (select client_id from public.client_department_statuses x join public.fulfillment_clients y on y.id = x.client_id and y.is_fixture limit 1)
+          and s.department = (select department from public.client_department_statuses x join public.fulfillment_clients y on y.id = x.client_id and y.is_fixture limit 1);
+        select 1 as rows`), "ERR 42501"],
+    ["…an automatic pick of an inactive person is released with the reason recorded",
+      () => p70(ADM70, `set local role postgres;
+        update public.agency_memberships set status = 'inactive' where user_id = '${AGENT70}';
+        update public.client_department_statuses s set assignee_id = '${AGENT70}', assignment_method = 'automatic'
+          where (s.client_id, s.department) = (select x.client_id, x.department from public.client_department_statuses x join public.fulfillment_clients y on y.id = x.client_id and y.is_fixture limit 1);
+        select (assignee_id is null)::text || ':' || coalesce(assignment_reason, '') as rows from public.client_department_statuses
+         where (client_id, department) = (select x.client_id, x.department from public.client_department_statuses x join public.fulfillment_clients y on y.id = x.client_id and y.is_fixture limit 1)`),
+      "true:Released: the person is no longer active"],
+    ["…deactivating a member releases every open assignment they held, and says how many",
+      () => p70(ADM70, `set local role postgres;
+        update public.client_department_statuses s set assignee_id = '${AGENT70}', assignment_method = 'automatic'
+          from public.fulfillment_clients c where c.id = s.client_id and c.is_fixture and s.assignee_id is null;
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        select public.set_agency_member_status((select id from public.agency_memberships where user_id = '${AGENT70}'), 'inactive');
+        set local role postgres;
+        select (select count(*) from public.client_department_statuses where assignee_id = '${AGENT70}')::text
+          || ':' || (select (new_value like '%released%')::text from public.activity_events where entity_type = 'agency_member' and entity_id = '${AGENT70}' and created_at >= now() order by id desc limit 1) as rows`),
+      "0:true"],
+
     /* 20261014003000: test work never reaches a real person's attention.
        Run as a REAL active owner from the roster (the fixtures must keep
        seeing fixture work, so a fixture subject could not prove this). The

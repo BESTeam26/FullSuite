@@ -16,6 +16,7 @@ import { OpsAddClientModal } from "./OpsAddClientModal";
 import { OpsSelect } from "@/components/ui/ops-select";
 import { useTeams } from "@/lib/data/use-teams";
 import { useWorkforce } from "@/lib/data/use-workforce";
+import { assignablePeople } from "@/lib/data/agency-workforce";
 import { CREDIT_STATUSES } from "@/lib/fulfillment/department-domain";
 
 /* One list, Dee's (2026-09-22). This dialog used to carry a third spelling of
@@ -54,7 +55,7 @@ export function AddClientModal({
   const roster = useWorkforce({ enabled: open });
   const assignees = [
     ...ELIGIBLE_ASSIGNEES,
-    ...(roster.data?.people ?? []).map((x) => x.name).filter(Boolean),
+    ...assignablePeople(roster.data?.people).map((x) => x.name),
   ];
   const store = useCreditOpsStore();
   const [round, setRound] = useState<FulfillmentClient["round"]>("Pre-Round");

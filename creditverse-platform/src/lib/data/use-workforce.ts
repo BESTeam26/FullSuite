@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/auth-context";
-import { fetchLeadershipScopes, fetchWorkforce } from "@/lib/data/agency-workforce";
+import { assignablePeople, fetchLeadershipScopes, fetchWorkforce } from "@/lib/data/agency-workforce";
 import type { AssignedPerson } from "@/lib/fulfillment/ops-client-domain";
 
 export const workforceKey = ["agency", "workforce"] as const;
@@ -53,13 +53,13 @@ export function useAssignableRoster(enabled = true): AssignedPerson[] {
     () => [
       { id: null, name: "Unassigned" },
       ...(loading ? [{ id: ROSTER_LOADING_ID, name: "Loading people…" }] : []),
-      ...(roster.data?.people ?? [])
-        .filter((p) => p.name)
+      ...assignablePeople(roster.data?.people)
         .map((p) => ({ id: p.userId, name: p.name })),
     ],
     [roster.data, loading],
   );
 }
+
 
 /** A placeholder picker entry while the roster loads — never a person. */
 export const ROSTER_LOADING_ID = "__loading__";
