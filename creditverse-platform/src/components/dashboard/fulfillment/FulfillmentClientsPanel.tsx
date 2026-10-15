@@ -456,6 +456,9 @@ export function FulfillmentClientsPanel({
         open={showAddClient}
         onClose={() => setShowAddClient(false)}
         partner={partner}
+        /* Dee, 2026-10-15: a new client opens its own file for work; nobody
+           is bounced back to the list to go and find it. */
+        onCreated={openClient}
         partnerOptions={
           partner
             ? undefined

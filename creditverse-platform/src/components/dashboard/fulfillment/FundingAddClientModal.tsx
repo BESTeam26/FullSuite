@@ -36,6 +36,8 @@ interface FundingAddClientModalProps {
   open: boolean;
   onClose: () => void;
   partner: FundingOpsPartner | undefined;
+  /** Called with the new client's id once it exists, so the list can open the file. */
+  onCreated?: (id: string) => void;
 }
 
 export function FundingAddClientModal({
@@ -43,6 +45,7 @@ export function FundingAddClientModal({
   open,
   onClose,
   partner,
+  onCreated,
 }: FundingAddClientModalProps) {
   /* The real roster, not a list of names in the source. "Unassigned" first so
      the honest choice is the default and nobody has to pick a person to save. */
@@ -153,7 +156,7 @@ export function FundingAddClientModal({
             };
       }}
       onCheckConflict={(payload) => store.checkAddConflict(payload)}
-      onAdd={(payload) => store.addClient(payload)}
+      onAdd={(payload) => store.addClient(payload, onCreated)}
     />
   );
 }

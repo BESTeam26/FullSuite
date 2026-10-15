@@ -35,6 +35,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { postNote } from "@/lib/data/activity";
 import { requireSupabase } from "@/lib/supabase/client";
 import { clientPostsKey } from "@/lib/data/use-client-posts";
+import { htmlTableToText } from "@/lib/activity/pasted-table";
 import type { FulfillmentClient } from "@/lib/fulfillment/fulfillment-client-domain";
 
 export function ClientUpdateComposer({ client }: { client: FulfillmentClient }) {
@@ -63,6 +64,15 @@ export function ClientUpdateComposer({ client }: { client: FulfillmentClient }) 
     if (images.length > 0) {
       e.preventDefault();
       add(images);
+      return;
+    }
+    /* A table copied from a GHL form (or any page) keeps its rows and cells
+       instead of collapsing to one cell per line (Dee, 2026-10-15). Stored as
+       plain text — " | " between cells — and drawn as a table in the rail. */
+    const table = htmlTableToText(e.clipboardData?.getData("text/html") ?? "");
+    if (table) {
+      e.preventDefault();
+      setText((t) => (t.trim() ? `${t.replace(/\s+$/, "")}\n${table}` : table));
     }
   };
 

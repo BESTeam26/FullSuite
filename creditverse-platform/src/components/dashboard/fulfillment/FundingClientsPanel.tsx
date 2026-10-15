@@ -180,6 +180,8 @@ export function FundingClientsPanel({
         open={showAddClient}
         onClose={() => setShowAddClient(false)}
         partner={partner}
+        /* Dee, 2026-10-15: a new client opens its own file for work. */
+        onCreated={setOpenClientId}
         partnerOptions={
           partner
             ? undefined

@@ -39,6 +39,8 @@ interface AddClientModalProps {
   partner: CreditOpsPartner | undefined;
   /** Offered when there is no partner in context (the Main Client List). */
   partnerOptions?: { scopeId: string; name: string; mode: string }[];
+  /** Called with the new client's id once it exists, so the list can open the file. */
+  onCreated?: (id: string) => void;
 }
 
 export function AddClientModal({
@@ -46,6 +48,7 @@ export function AddClientModal({
   onClose,
   partner,
   partnerOptions,
+  onCreated,
 }: AddClientModalProps) {
   /* The real roster, not a list of names in the source. "Unassigned" first so
      the honest choice is the default and nobody has to pick a person to save. */
@@ -152,7 +155,7 @@ export function AddClientModal({
             };
       }}
       onCheckConflict={(payload) => store.checkAddConflict(payload)}
-      onAdd={(payload) => store.addClient(payload)}
+      onAdd={(payload) => store.addClient(payload, onCreated)}
     />
   );
 }

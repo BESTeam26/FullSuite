@@ -151,8 +151,15 @@ export interface OpsClientStoreValue<T extends OpsClient, D> {
   checkAddConflict: (
     client: Omit<T, "id" | "lastActivity" | "createdAt">,
   ) => ClientConflictResult<T>;
+  /**
+   * `onCreated` is called with the new record's id once it exists — in the
+   * live store after the database answers, so the caller can open the file
+   * (Dee, 2026-10-15: adding a client should open it, not bounce back to the
+   * list). Never called when the add is blocked or fails.
+   */
   addClient: (
     client: Omit<T, "id" | "lastActivity" | "createdAt">,
+    onCreated?: (id: string) => void,
   ) => AddClientOutcome<T>;
   /**
    * Persist a note. Resolves with the created activity id, which the composer
@@ -474,6 +481,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
     const addClient = useCallback(
       (
         client: Omit<T, "id" | "lastActivity" | "createdAt">,
+        onCreated?: (id: string) => void,
       ): AddClientOutcome<T> => {
         // HARD RULE: one email = one file per Partner. Block same-scope dupes.
         const conflict = checkClientConflict(
@@ -520,6 +528,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
           },
           ...a,
         ]);
+        onCreated?.(id);
         return {
           id,
           blocked: false,
@@ -772,6 +781,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
     const addClient = useCallback(
       (
         client: Omit<T, "id" | "lastActivity" | "createdAt">,
+        onCreated?: (id: string) => void,
       ): AddClientOutcome<T> => {
         // The database has the authoritative unique index; this pre-check is
         // what lets the interface explain the collision before writing.
@@ -798,7 +808,7 @@ export function createOpsClientStore<T extends OpsClient, D>(
         }
         void backend
           .addClient(client, agencyId)
-          .then(invalidate)
+          .then((id) => { invalidate(); onCreated?.(id); })
           .catch(report("Adding client"));
         return {
           id: "",

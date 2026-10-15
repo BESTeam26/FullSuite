@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { requireSupabase } from "@/lib/supabase/client";
 import type { AttachmentFile } from "@/lib/fulfillment/attachment-domain";
 import { FileViewer } from "@/components/dashboard/fulfillment/FileViewer";
+import { detailBlocks } from "@/lib/activity/pasted-table";
 import {
   useClientPosts, useDeletePost, useEditPost, useReactToPost, useReplyToPost,
   type ClientPost, type FeedFile, type FeedKind,
@@ -340,12 +341,30 @@ function Post({
             ) : post.detail ? (
               /* `whitespace-pre-wrap`: a year of ClickUp comments is plain
                  text whose line breaks carry the meaning. */
-              <p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
-                {post.detail}
+              <div className="mt-1.5 text-xs leading-relaxed text-foreground">
+                {detailBlocks(post.detail).map((block, i) =>
+                  block.kind === "table" ? (
+                    /* A pasted GHL form, kept as a table (Dee, 2026-10-15). */
+                    <table key={i} className="my-1 w-full border-collapse text-xs">
+                      <tbody>
+                        {block.rows.map((cells, r) => (
+                          <tr key={r} className="border-b border-border/60 last:border-0">
+                            {cells.map((cell, c) => (
+                              <td key={c} className={cn("py-1 pr-3 align-top break-words", c === 0 && cells.length > 1 && "font-medium text-muted-foreground")}>{cell}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    /* `whitespace-pre-wrap`: a year of ClickUp comments is plain
+                       text whose line breaks carry the meaning. */
+                    <p key={i} className="whitespace-pre-wrap break-words">{block.text}</p>
+                  ))}
                 {post.edited && (
                   <span className="ml-1.5 text-[10px] text-muted-foreground">(edited)</span>
                 )}
-              </p>
+              </div>
             ) : null}
           </div>
         </div>
