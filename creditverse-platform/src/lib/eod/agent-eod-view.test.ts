@@ -24,6 +24,9 @@ describe("the Agent EOD view rules", () => {
     expect(eodDueLabel("19:00:00")).toBe("Due today by 7:00 PM");
     expect(eodDueLabel("09:30:00")).toBe("Due today by 9:30 AM");
     expect(eodDueLabel("00:15:00")).toBe("Due today by 12:15 AM");
+    /* "24:00:00" is midnight at the end of the day (BES's cutoff since
+       2026-10-15), never "12:00 PM". */
+    expect(eodDueLabel("24:00:00")).toBe("Due today by midnight");
     expect(eodDueLabel(null)).toBeNull();
   });
 

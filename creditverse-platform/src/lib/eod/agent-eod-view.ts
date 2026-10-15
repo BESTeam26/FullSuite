@@ -39,11 +39,17 @@ export function scoringPeriod(date: string, scoringStartsOn: string | null): { p
   return { period, note: `${MONTH_NAME(before)} was a testing phase and is not scored.` };
 }
 
-/** "Due today by 7:00 PM" from the agency's cutoff ("19:00:00"); null without one. */
+/**
+ * "Due today by 7:00 PM" from the agency's cutoff ("19:00:00"); null without
+ * one. Midnight at the END of the day is stored as "24:00:00" (Dee,
+ * 2026-10-15: "12 midnight EST") — Postgres accepts it, the reminder and
+ * auto-submit arithmetic need it, and it reads as midnight, not noon.
+ */
 export function eodDueLabel(cutoffLocal: string | null): string | null {
   if (!cutoffLocal) return null;
   const [h, m] = cutoffLocal.split(":").map(Number);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  if (h === 24 && m === 0) return "Due today by midnight";
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   return `Due today by ${hour12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }

@@ -120,15 +120,21 @@ Last reconciled: 2026-10-01, after the full review (stale entries corrected agai
   Department Lead" control (today the lead's own Submit routes the team
   document upward). Then the same shape for Department Lead → Division
   Head → Executive, which `eod_scopes_led` already routes.
-- **EOD cutoff is unset.** `agencies.eod_cutoff_local` is null, so the
-  Agent EOD header shows no "Due today by …" line and nothing auto-submits.
-  Dee's mockup says 7:00 PM — confirm the time and whether unsubmitted
-  days should auto-submit at that time (`eod_auto_submit`).
+- ~~**EOD cutoff is unset.**~~ SET 2026-10-15 on Dee's decision: **midnight
+  Eastern**, stored as `24:00:00` (end of the work date; `00:00` would have
+  made the overdue nudge fire at the start of the day). The Agent EOD header
+  reads "Due today by midnight"; the reminder goes out at 11:30 PM ET. The
+  cutoff's own "overdue" nudge cannot fire for a midnight cutoff (the sweep
+  compares the time of day) — the next-morning nudge is a small follow-up if
+  Dee wants it. **`eod_auto_submit` is still OFF** — Dee to decide whether
+  an unsubmitted day is auto-submitted at midnight (the app calls
+  `eod_run_cutoff` when the EOD page opens; there is no scheduled job, so
+  turning it on also means scheduling one).
 
 | # | Item | Why it matters today |
 |---|---|---|
 | N-1 | **Bureau Calling team has no members** | The queue routes work to a team with nobody on it; files would sit unassigned. Needs Dee to place somebody, or the queue stays empty by choice. |
-| N-2 | **12 of the 14 measured people have no pay arrangement** (live count, 2026-10-01 review) | Payroll skips anyone without one: they get no payslip at all. Set from People › a person › Compensation. |
+| N-2 | **5 of the 6 active real staff have no pay arrangement** (live count 2026-10-15: Aaron Gallardo, Danicko Carl P. Macasiab, Daniel Charles P. Macasiab, Dee Gallardo, Ivan L. Olympia; Bryan Breva has one) | Payroll skips anyone without one: they get no payslip at all. Set from People › a person › Compensation, or give Claude per person: arrangement (direct BES / via managing partner), basis (hourly · daily · monthly · per cutoff), rate, start date. |
 | N-4 | **Four expired, unaccepted invitations remain** (live count, 2026-10-01; everyone named on 09-21 is now active) | Housekeeping only: revoke them or resend if any is still wanted. |
 
 
