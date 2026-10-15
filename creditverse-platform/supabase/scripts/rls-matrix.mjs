@@ -2787,12 +2787,18 @@ if (runs(47)) {
            WHOLE table as the superuser with the caller's claims still set —
            otherwise the right side is a subset of the left by construction
            and the check could never fail. */
+        /* Both directions, bounded. fulfillment_client_readable() costs ~90 ms
+           per row for an agent (partner and team scope, 2026-10-15), so the
+           whole table twice is minutes and the API cuts the request off. Every
+           row the caller SEES must be readable (their own set — small for an
+           agent, the lot for an owner), and a random 120 of the rows they do
+           NOT see must not be — the leak direction, sampled fresh each run. */
         () => w47(U[e], `create temp table seen47 on commit drop as select id from public.fulfillment_clients;
                  set local role postgres;
-                 select ((select count(*) from seen47)
-                   = (select count(*) from public.fulfillment_clients c where public.fulfillment_client_readable(c.id))
-                   and not exists (select 1 from public.fulfillment_clients c
-                                    where public.fulfillment_client_readable(c.id) and c.id not in (select id from seen47)))::text as rows`), "true"]),
+                 create temp table unseen47 on commit drop as
+                   select c.id from public.fulfillment_clients c where c.id not in (select id from seen47) order by random() limit 120;
+                 select ((select count(*) from seen47 s where not public.fulfillment_client_readable(s.id)) = 0
+                   and (select count(*) from unseen47 u where public.fulfillment_client_readable(u.id)) = 0)::text as rows`), "true"]),
 
     /* The three defects this sweep found, each asserted in both directions. */
     ["client_birthdays does not leak another organization's clients",

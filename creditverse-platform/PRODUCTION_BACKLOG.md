@@ -195,6 +195,14 @@ says feels slow is profiled as a real session):**
 
 ## LATER — useful, not currently blocking operations
 
+- **`fulfillment_client_readable()` costs ~90 ms per call for an agent**
+  (measured 2026-10-15: 50 rows 5.9 s, 200 rows 18.5 s as bes.credit). It is
+  called once per request in the definer readers (client feed, timeline),
+  so a screen pays ~90 ms, within target; but anything that calls it per
+  row would be slow, and the matrix's whole-table comparison had to be
+  bounded to a sample. Worth a look at the partner/team scope subqueries
+  it repeats per call. Not blocking.
+
 - ~~**Route/code prefetch audit** (recorded 2026-10-03, Dee)~~ — DONE
   2026-10-14. Measured on the production build (static imports beyond the
   shell): idle warming of every menu route pulled **323 files / 2.6 MB**
