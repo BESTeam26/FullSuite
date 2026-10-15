@@ -26,6 +26,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useOrganizationTree } from "@/lib/data/use-organization-structure";
 import { usePositionHistory, usePositions, usePositionActions } from "@/lib/data/use-positions";
 import { useWorkforce } from "@/lib/data/use-workforce";
+import { assignablePeople } from "@/lib/data/agency-workforce";
 import type { AssignmentType, Position } from "@/lib/data/positions";
 import { cn } from "@/lib/utils";
 
@@ -125,7 +126,7 @@ export function PositionsSection() {
 
             {p.id === openId && (
               <PositionDetail position={p} tree={tree.data!} positions={rows}
-                people={(workforce.data?.people ?? []).map((x) => ({ userId: x.userId, name: x.name }))}
+                people={assignablePeople(workforce.data?.people).map((x) => ({ userId: x.userId, name: x.name }))}
                 canManage={canManage} onClose={() => setOpen(null)} />
             )}
           </li>
