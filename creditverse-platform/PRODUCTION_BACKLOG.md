@@ -134,7 +134,7 @@ Last reconciled: 2026-10-01, after the full review (stale entries corrected agai
   Auto-submitted (already labelled so on Agent EOD, Team EOD, member
   profile and rollup), and notifies the agent and every lead of their
   teams. Proven in rolled-back transactions; two named checks in phase 70.
-  AWAITING RELEASE.
+  DEPLOYED 2026-10-15 (the sweep has run live since `20261015001000` was applied).
 
 | # | Item | Why it matters today |
 |---|---|---|
@@ -270,7 +270,9 @@ could make on its own; all three were hers, and she answered them directly.
   rows, so the header kept saying "No open work · Unassigned" until a page
   reload. Fixed in `ops-client-store.tsx`: a status change reloads the
   file's department rows and the list's map. Regression test added.
-  AWAITING RELEASE. **Why the row showed no assignee:** the Support
+  DEPLOYED 2026-10-15 (`e9a851f`). Support is now in automatic assignment
+  mode (Dee: "all support sent them to Kaori"), so new Support work lands
+  on Kaori; 329 open Support files re-routed to her. **Why the row showed no assignee:** the Support
   department is in team-lead assignment mode, so the row opens unassigned
   for the lead to hand out — that is the configured rule, not a defect.
   **Dee also asked to remove the Complete Work button.** NOT DONE, on
@@ -291,13 +293,15 @@ could make on its own; all three were hers, and she answered them directly.
   a client the caller may write, past row security. PROVEN live in a
   rolled-back transaction as Kaori: the same handoff now returns opened
   Complaints, already open Dispute, no error; a zero-visibility user gets
-  "no" from the helper. AWAITING RELEASE. Joel Marte's file is already
+  "no" from the helper. DEPLOYED 2026-10-15 (`20261015007000`). Joel Marte's file is already
   correct in the database (Onboarding closed, Dispute open with Danicko).
 
 - **CreditOps · "Endorsed to Client" is a credit status (Dee, 2026-10-15:
   "removes the responsibility to the team, and will show to client portal
-  as their something needed action").** AWAITING RELEASE: `20261015008000`
-  (the enum value) and `20261015009000` (what it does). A new routing kind,
+  as their something needed action").** DEPLOYED 2026-10-15: `20261015008000`
+  and `20261015009000` applied; DATABASE VERIFIED: 23 files on Endorsed to
+  Client, all lifecycle active, no open department row, one open
+  endorsed_to_client action each. A new routing kind,
   client_action: every open department row takes its department's closed
   status, the file leaves every queue, one client-audience action
   (`endorsed_to_client`) is raised with the status it came from, the client
@@ -319,8 +323,8 @@ could make on its own; all three were hers, and she answered them directly.
 
 - **Accounts (Dee, 2026-10-15): Aaron uses support@; retire every other
   login of his; remove kaori@.** Script
-  `supabase/scripts/accounts-2026-10-15-aaron-and-kaori.mjs`, dry-run
-  clean, AWAITING Dee's go to run with `--commit`. It moves the owner flag,
+  `supabase/scripts/accounts-2026-10-15-aaron-and-kaori.mjs`, RUN
+  2026-10-15 with `--commit` on Dee's go. It moves the owner flag,
   14 permissions, the chief-operations seat (old ends today, new starts
   today), two teams and two channels from aaron@ to support@; makes aaron@
   inactive (releasing its one headline file) and disables its sign-in.
@@ -329,10 +333,27 @@ could make on its own; all three were hers, and she answered them directly.
   Partner" portal contact from 2026-09-12 — so its sign-in is disabled and
   the contact archived.
 
+- **Slow season team shape (Dee, 2026-10-15: "All support to Kaori. All
+  dispute to Dan and Daniel. All complaints to Ivan. Everyone reports to
+  Dee. We removed all other teams.").** RUN 2026-10-15 by
+  `supabase/scripts/team-2026-10-15-slow-season.mjs` on Dee's go: Support
+  department in automatic mode (329 files to Kaori, 1 left unassigned —
+  its status routes elsewhere); Danicko and Daniel are members of the
+  Dispute team, not leads (Dispute now 42 / 186 between them); Complaints
+  automatic (148 with Ivan); Daniel's two department-manager seats and
+  every seat held by an inactive person ended yesterday; Bryan inactive;
+  Danicko, Daniel and Kaori's EODs route to Dee. Allyssa Mores (inactive)
+  is still marked lead on a Client Success team row — harmless, hidden,
+  left as history.
+
 - **EOD · a lead's report is final at the cutoff and counts every lead
   below (Dee, 2026-10-15: "I keep seeing 0 when there should be some
-  report. This is not accurate.").** AWAITING RELEASE: migration
-  `20261015006000`, Edge Function `eod-email`, and the Team EOD card.
+  report. This is not accurate.").** DEPLOYED 2026-10-15 (migration
+  `20261015006000` applied, `e9a851f` pushed). **Edge Function `eod-email`
+  NOT YET DEPLOYED — Claude's deploy was refused by the harness; Dee runs
+  `npx supabase functions deploy eod-email --no-verify-jwt` from
+  `creditverse-platform/`. Until then the "(final)" email is queued and sent
+  with the old wording (no "as of" line); the figures are right.**
   Found on Dee's live 2026-10-15 row: the Organization report is built the
   moment the lead presses Submit (Dee filed at 11:23 AM Eastern) and is
   frozen — email, stored copy and Team EOD screen all showed the team at
@@ -364,10 +385,8 @@ could make on its own; all three were hers, and she answered them directly.
   three clients she added on 2026-10-15 sit on a management team while the
   other 1,451 live files have no team. Fixed in `use-teams.ts`: a team is
   pre-selected only when the user's ceiling requires one; otherwise "No
-  team". AWAITING RELEASE. **Needs Dee's go, a live data write:** clear the
-  team on the two Admin-Team clients (ids `d5ca5628…`, `af13aa4c…`) so they
-  match the rest; the matrix delta (bes.manager 1461 vs 1459) is exactly
-  these two and closes with that write.
+  team". DEPLOYED 2026-10-15; the two Admin-Team clients cleared by
+  `team-2026-10-15-slow-season.mjs` on Dee's go.
 
 - **Three CreditOps rules from Dee, 2026-10-15 — DEPLOYED 2026-10-15 on
   Dee's "Go, I want them all live now" (`c91318e`, migrations applied):** (1)
