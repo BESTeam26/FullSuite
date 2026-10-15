@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { prefetchVisibleRoutes } from "./prefetch-visible";
+import { IDLE_WARM_LIMIT, prefetchVisibleRoutes } from "./prefetch-visible";
 import { isWarmed, resetWarmed } from "./route-chunks";
 
 /** Drive requestIdleCallback by hand so the schedule is observable. */
@@ -34,6 +34,18 @@ describe("prefetchVisibleRoutes", () => {
     drain(2);
     expect(isWarmed("/app/reporting")).toBe(true);
     expect(isWarmed("/app/people")).toBe(true);
+  });
+
+  it("warms only the first IDLE_WARM_LIMIT screens — opening one module must not download most of FullSuite (Dee, 2026-10-03)", () => {
+    const menu = [
+      "/app", "/app/attention", "/app/channels", "/app/my-work", "/app/eod",
+      "/app/creditops", "/app/fundingops", "/app/people", "/app/files", "/app/tools",
+    ];
+    prefetchVisibleRoutes(menu);
+    drain(20);
+    expect(menu.slice(0, IDLE_WARM_LIMIT).every(isWarmed)).toBe(true);
+    expect(menu.slice(IDLE_WARM_LIMIT).some(isWarmed)).toBe(false);
+    expect(queue.length).toBe(0);
   });
 
   it("stops scheduling once the menu is warm", () => {

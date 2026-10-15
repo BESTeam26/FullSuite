@@ -9,6 +9,18 @@
         "dev"
       ],
       "port": 8080
+    },
+    {
+      "name": "preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "--port",
+        "8081",
+        "--strictPort"
+      ],
+      "port": 8081
     }
   ]
 }

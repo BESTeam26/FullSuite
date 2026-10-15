@@ -59,19 +59,36 @@ const whenIdle = (work: () => void): (() => void) => {
 };
 
 /**
- * Queue `hrefs` for background loading, nearest the top of the menu first.
- * Returns a function that abandons whatever has not started yet.
+ * How many menu screens the idle pass warms. The menu arrives in its drawn
+ * order, so these are the entries at the top: Home, Attention, Communication,
+ * My Work, End of Day — the screens every role opens daily.
+ *
+ * Dee, 2026-10-03: opening one module must not download most of FullSuite.
+ * Measured on the production build of 2026-10-14 (static imports from each
+ * route's entry chunk, beyond the shell): warming every registered route
+ * pulled 323 extra files / 2.6 MB after ANY page; this cap pulls 103 files /
+ * 0.7 MB, and one module opened by hand costs about 120 files / 0.5 MB once,
+ * then comes from cache. A deliberate click still has hover/focus warming
+ * (PrefetchLink); on a phone a tap loads the one screen it asked for.
+ */
+export const IDLE_WARM_LIMIT = 5;
+
+/**
+ * Queue the first `IDLE_WARM_LIMIT` of `hrefs` for background loading,
+ * nearest the top of the menu first. Returns a function that abandons
+ * whatever has not started yet.
  */
 export const prefetchVisibleRoutes = (hrefs: readonly string[]): (() => void) => {
   if (!affordable()) return () => {};
 
+  const queue = hrefs.slice(0, IDLE_WARM_LIMIT);
   let cancelled = false;
   let index = 0;
   let stop = () => {};
 
   const step = () => {
-    if (cancelled || index >= hrefs.length) return;
-    prefetchRoute(hrefs[index++]);
+    if (cancelled || index >= queue.length) return;
+    prefetchRoute(queue[index++]);
     stop = whenIdle(step);
   };
 
