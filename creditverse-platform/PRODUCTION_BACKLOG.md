@@ -294,13 +294,40 @@ could make on its own; all three were hers, and she answered them directly.
   "no" from the helper. AWAITING RELEASE. Joel Marte's file is already
   correct in the database (Onboarding closed, Dispute open with Danicko).
 
-- **CreditOps · 23 files read "Program Completed" that are not complete
-  (Dee, 2026-10-15, Shanika Dessalines).** All 23 came from the ClickUp
-  import with source status "endorsed to client", mapped to Program
-  Completed on 2026-09-25/29 with lifecycle program_completed. Dee to say
-  what "endorsed to client" means (the status those files should hold);
-  the remap is one live write per file through the routing engine, with
-  her go.
+- **CreditOps · "Endorsed to Client" is a credit status (Dee, 2026-10-15:
+  "removes the responsibility to the team, and will show to client portal
+  as their something needed action").** AWAITING RELEASE: `20261015008000`
+  (the enum value) and `20261015009000` (what it does). A new routing kind,
+  client_action: every open department row takes its department's closed
+  status, the file leaves every queue, one client-audience action
+  (`endorsed_to_client`) is raised with the status it came from, the client
+  stays active; the client's answer brings it back through routing exactly
+  as For Client Confirmation does. The 23 ClickUp files imported as
+  "Program Completed" from source status "endorsed to client" (Shanika
+  Dessalines among them) are moved by the migration, their raised actions
+  flagged for routing review because their real origin is unknown. Front
+  end: the status is in Dee's list after For Partner Confirmation,
+  coloured as a client-action status, counted as not-active volume. Unit
+  tests pass with the enum value added by hand to `database.types.ts`;
+  regenerate (`npm run db:types`) after release. NOT VERIFIED LIVE: a new
+  enum value cannot be exercised in the transaction that adds it, so the
+  routing branch is proven only by compile and by the For Client
+  Confirmation pattern it copies; first live check is Shanika's file after
+  release. **The client portal does not exist yet** (roadmap item); the
+  action is recorded in `partner_action_items` (audience client) and
+  will show the moment that portal is built. HUMAN TEST REQUIRED.
+
+- **Accounts (Dee, 2026-10-15): Aaron uses support@; retire every other
+  login of his; remove kaori@.** Script
+  `supabase/scripts/accounts-2026-10-15-aaron-and-kaori.mjs`, dry-run
+  clean, AWAITING Dee's go to run with `--commit`. It moves the owner flag,
+  14 permissions, the chief-operations seat (old ends today, new starts
+  today), two teams and two channels from aaron@ to support@; makes aaron@
+  inactive (releasing its one headline file) and disables its sign-in.
+  Nothing is deleted: 257 foreign keys point at profiles and history must
+  stay attributed. kaori@ is not Kaori's staff account — it is the "Test
+  Partner" portal contact from 2026-09-12 — so its sign-in is disabled and
+  the contact archived.
 
 - **EOD · a lead's report is final at the cutoff and counts every lead
   below (Dee, 2026-10-15: "I keep seeing 0 when there should be some
