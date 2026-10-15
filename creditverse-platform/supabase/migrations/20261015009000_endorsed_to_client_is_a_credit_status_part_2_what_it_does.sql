@@ -25,8 +25,8 @@ begin;
 alter table public.creditops_status_routing drop constraint if exists creditops_status_routing_kind_check;
 alter table public.creditops_status_routing add constraint creditops_status_routing_kind_check
   check (kind = any (array['actionable','waiting','partner_action','client_action','terminal']));
-alter table public.creditops_status_routing drop constraint if exists creditops_status_routing_check;
-alter table public.creditops_status_routing add constraint creditops_status_routing_check
+alter table public.creditops_status_routing drop constraint if exists routing_department_matches_kind;
+alter table public.creditops_status_routing add constraint routing_department_matches_kind
   check ((kind in ('actionable','waiting') and department is not null and entry_status is not null)
       or (kind = 'terminal' and entry_status is null)
       or (kind in ('partner_action','client_action') and department is null and entry_status is null));

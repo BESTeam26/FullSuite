@@ -43,7 +43,8 @@ const sql = `begin;
     select agency_id, '${NEW}', seat, division_id, department_id, current_date,
            'Dee, 2026-10-15: Aaron uses support@; moved from aaron@', '${dee}'
       from public.management_seats where user_id = '${OLD}' and effective_to is null;
-  update public.management_seats set effective_to = current_date where user_id = '${OLD}' and effective_to is null;
+  -- seat_is_live reads effective_to >= today as still live, so the old seat ends yesterday
+  update public.management_seats set effective_to = current_date - 1 where user_id = '${OLD}' and effective_to is null;
   -- 3. teams and channels
   insert into public.team_memberships (team_id, user_id, is_lead)
     select team_id, '${NEW}', is_lead from public.team_memberships where user_id = '${OLD}' on conflict do nothing;

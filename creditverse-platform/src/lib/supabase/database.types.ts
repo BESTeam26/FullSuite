@@ -3661,6 +3661,7 @@ export type Database = {
       }
       creditops_status_routing: {
         Row: {
+          clears_blockers: boolean
           closes_department:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
@@ -3676,6 +3677,7 @@ export type Database = {
           status: Database["public"]["Enums"]["fulfillment_client_status"]
         }
         Insert: {
+          clears_blockers?: boolean
           closes_department?:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
@@ -3691,6 +3693,7 @@ export type Database = {
           status: Database["public"]["Enums"]["fulfillment_client_status"]
         }
         Update: {
+          clears_blockers?: boolean
           closes_department?:
             | Database["public"]["Enums"]["fulfillment_department"]
             | null
@@ -5929,6 +5932,7 @@ export type Database = {
           next_workday_priority: string | null
           report: Json | null
           report_error: string | null
+          report_final_at: string | null
           report_level: string | null
           report_scope_id: string | null
           review_note: string | null
@@ -5957,6 +5961,7 @@ export type Database = {
           next_workday_priority?: string | null
           report?: Json | null
           report_error?: string | null
+          report_final_at?: string | null
           report_level?: string | null
           report_scope_id?: string | null
           review_note?: string | null
@@ -5985,6 +5990,7 @@ export type Database = {
           next_workday_priority?: string | null
           report?: Json | null
           report_error?: string | null
+          report_final_at?: string | null
           report_level?: string | null
           report_scope_id?: string | null
           review_note?: string | null
@@ -19469,6 +19475,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      creditops_department_row_exists: {
+        Args: {
+          p_client: string
+          p_department: Database["public"]["Enums"]["fulfillment_department"]
+        }
+        Returns: boolean
+      }
       creditops_department_rows: {
         Args: { p_group?: string }
         Returns: {
@@ -19962,7 +19975,15 @@ export type Database = {
         Returns: Json
       }
       eod_email_dispatch: { Args: never; Returns: undefined }
+      eod_finalize_reports: { Args: never; Returns: number }
       eod_my_report: { Args: { p_date: string }; Returns: Json }
+      eod_queue_email_for: {
+        Args: {
+          e: Database["public"]["Tables"]["eod_submissions"]["Row"]
+          p_kind: string
+        }
+        Returns: undefined
+      }
       eod_report: {
         Args: { p_date: string; p_level: string; p_scope_id: string }
         Returns: Json
@@ -20000,6 +20021,7 @@ export type Database = {
         }[]
       }
       eod_run_cutoff: { Args: { p_agency: string }; Returns: number }
+      eod_rung_rank: { Args: { p_user: string }; Returns: number }
       eod_scopes_led: {
         Args: { p_employee: string }
         Returns: {
@@ -20258,6 +20280,7 @@ export type Database = {
         Returns: string
       }
       invoice_is_overdue: { Args: { p_invoice: string }; Returns: boolean }
+      is_active_member: { Args: { p_user: string }; Returns: boolean }
       is_admin_of: { Args: { p_agency: string }; Returns: boolean }
       is_agency_admin: { Args: never; Returns: boolean }
       is_agency_manager_or_above: { Args: never; Returns: boolean }
@@ -21501,6 +21524,10 @@ export type Database = {
         Returns: undefined
       }
       release_payroll: { Args: { p_cutoff: string }; Returns: string }
+      release_work_of_inactive_member: {
+        Args: { p_user: string }
+        Returns: number
+      }
       reminders_sweep: { Args: { p_now?: string }; Returns: number }
       rename_channel: {
         Args: { p_channel: string; p_name: string }
@@ -22468,7 +22495,6 @@ export type Database = {
         | "Round Sent - Awaiting Results"
         | "Ready for Reimport / Review"
         | "Waiting for Partner Approval"
-        | "Endorsed to Client"
         | "New Client"
         | "Incomplete Onboarding"
         | "Prio Processing"
@@ -22496,6 +22522,7 @@ export type Database = {
         | "For Client Confirmation"
         | "Outsourcing - Unpaid"
         | "Round 13 Sent"
+        | "Endorsed to Client"
       fulfillment_department:
         | "Onboarding"
         | "Dispute"
@@ -23241,7 +23268,6 @@ export const Constants = {
         "Round Sent - Awaiting Results",
         "Ready for Reimport / Review",
         "Waiting for Partner Approval",
-        "Endorsed to Client",
         "New Client",
         "Incomplete Onboarding",
         "Prio Processing",
@@ -23269,6 +23295,7 @@ export const Constants = {
         "For Client Confirmation",
         "Outsourcing - Unpaid",
         "Round 13 Sent",
+        "Endorsed to Client",
       ],
       fulfillment_department: [
         "Onboarding",
