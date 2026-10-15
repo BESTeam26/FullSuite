@@ -49,7 +49,13 @@ export function useTeams() {
     isLoading: live ? q.isLoading : false,
     /** Whether this user's ceiling requires a team to be chosen at creation. */
     mustChooseTeam: auth.agencyScope === "team" || auth.agencyScope === "department",
-    /** Sensible default: the first team the user leads, else the first they sit on. */
-    defaultTeamId: auth.ledTeamIds[0] ?? auth.teamIds[0] ?? null,
+    /** A team is pre-selected only when the user's ceiling requires one. For
+        everybody else the default is "No team": a CreditOps client is scoped
+        by its partner and its department assignments, and 1,451 of the 1,454
+        live files have no team. Pre-selecting the first team Dee LEADS put two
+        new clients on the Admin Team on 2026-10-15. */
+    defaultTeamId: auth.agencyScope === "team" || auth.agencyScope === "department"
+      ? (auth.ledTeamIds[0] ?? auth.teamIds[0] ?? null)
+      : null,
   };
 }
