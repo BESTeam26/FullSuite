@@ -349,11 +349,8 @@ could make on its own; all three were hers, and she answered them directly.
 - **EOD · a lead's report is final at the cutoff and counts every lead
   below (Dee, 2026-10-15: "I keep seeing 0 when there should be some
   report. This is not accurate.").** DEPLOYED 2026-10-15 (migration
-  `20261015006000` applied, `e9a851f` pushed). **Edge Function `eod-email`
-  NOT YET DEPLOYED — Claude's deploy was refused by the harness; Dee runs
-  `npx supabase functions deploy eod-email --no-verify-jwt` from
-  `creditverse-platform/`. Until then the "(final)" email is queued and sent
-  with the old wording (no "as of" line); the figures are right.**
+  `20261015006000` applied, `e9a851f` pushed, Edge Function `eod-email`
+  deployed by Dee 2026-10-15 after the harness refused Claude's deploy).
   Found on Dee's live 2026-10-15 row: the Organization report is built the
   moment the lead presses Submit (Dee filed at 11:23 AM Eastern) and is
   frozen — email, stored copy and Team EOD screen all showed the team at
