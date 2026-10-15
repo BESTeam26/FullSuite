@@ -198,11 +198,19 @@ says feels slow is profiled as a real session):**
 
 - **The notification bell mounts slowly in jsdom** (17–34 s per device-state
   case under load, 2026-10-01; the suite failed twice on the 30 s limit after
-  passing three times earlier the same day). The test allowance is 90 s now;
-  the real item is whatever the popover + portal mount does that costs
-  seconds — profile `NotificationBell` under vitest and cut it. The time-off
-  request dialog has the same cost (4.6–5.8 s per case, 2026-10-02); its
-  allowance is 30 s.
+  passing three times earlier the same day). The test allowance is 90 s now.
+  **Profiled 2026-10-14:** not the bell. A bare `<Popover>` from
+  `components/ui/popover` costs ~5 s of CPU the first time it opens in jsdom
+  (bell: 12–24 s per case = one open per case plus load). The CPU profile
+  (`--cpu-prof` on the vitest fork) puts 4.5 of those seconds in jsdom's
+  selector engine (`Element.matches` → nwsapi) called from jsdom internals
+  with no app frame above it — not floating-ui, not React, not the queries
+  (`getByRole` was 13 ms). Production is unaffected; a real browser opens
+  the popover instantly. Options, none taken yet: (a) pin/upgrade jsdom or
+  nwsapi and re-measure; (b) run the popover/dialog test files under
+  `happy-dom`; (c) stub `@radix-ui/react-popper` in those two files. The
+  time-off request dialog has the same cost (4.6–5.8 s per case,
+  2026-10-02); its allowance is 30 s.
 
 - **Bounded rendering for every high-volume list (Dee's rule, 2026-09-30) — DONE 2026-09-30.**
   Every list past a few hundred rows now renders through `useVirtualRows`

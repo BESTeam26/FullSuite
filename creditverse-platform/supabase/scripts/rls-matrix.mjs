@@ -5915,7 +5915,13 @@ if (runs(64)) {
      and exists (select 1 from public.channel_members m where m.channel_id=c.id and m.user_id='${b}') limit 1)`;
   const ann64 = (cols, vals) =>
     `insert into public.announcements (audience, title, body, agency_id, created_by${cols}) values ('bes_internal','[TEST] Notify','[TEST] Body','${AG64}','${OWN64}'${vals});`;
-  const nCount = (where) => `select count(*)::int as rows from public.notifications where ${where}`;
+  /* Only what THIS probe wrote: inside a transaction now() is fixed at its
+     start, so `created_at >= now()` is exactly the rows inserted here. The
+     table holds real notifications — 71 announcement tellings from Dee's
+     three October announcements made every unscoped count wrong
+     (2026-10-14: "a DRAFT announcement notifies nobody: 71 (want 0)").
+     Fixtures coexist with real data; a probe counts its own invariant. */
+  const nCount = (where) => `select count(*)::int as rows from public.notifications where created_at >= now() and (${where})`;
   const freeTeam64 = `update public.work_items set team_id = null where id = '${WORK64}';`;
   /* These probes used to depend on where the shared fixtures happened to be
      standing. `[TEST] Evan Ellis` has since been reassigned and already holds
@@ -7874,9 +7880,12 @@ if (runs(73)) {
       "refused"],
 
     ["a lifecycle change is on the partner's timeline",
+      /* This probe's own event only: a real "Project archived" (Dee's test
+         project, 2026-10-14) is on another partner's timeline for good. */
       () => p73(OWN73, `select public.crm_project_archive('${PROJ73}', null);
                         select count(*)::int as rows from public.activity_events
-                         where entity_type='partner' and action='Project archived'`),
+                         where entity_type='partner' and action='Project archived'
+                           and entity_id='${GRP73}' and created_at >= now()`),
       GRP73 === "" ? 0 : 1],
   ];
   runPhase("phase 73", P73, { strict: true });
