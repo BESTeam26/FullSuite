@@ -8040,11 +8040,25 @@ if (runs(75)) {
                    order by fc.created_at limit 1`)[0].rows;
   /* A run as the harness role, so the sweep (cron's, not a user's) can be
      exercised alongside user-level setup. */
-  const run = (sql) => {
+  /* Retried once on a deadlock (40P01). These probes run sla_sweep() over
+     every overdue department row — hundreds of real clients — and hold those
+     row locks for the rest of the probe, while cron jobs write every minute
+     in the same database. Postgres then cancels one side; a deadlock is
+     retry-safe by definition, and each probe is its own rolled-back
+     transaction. Production's own hourly sweep takes 0.2 s and has never
+     failed (168/168 runs in the last week, 2026-10-14) — the exposure is the
+     harness's long transaction, not the function. Seen twice at the quiet
+     hour on 2026-10-14 (probes 13 and 15). */
+  const run = (sql, attempt = 1) => {
     try { return q(`begin; ${sql}; rollback;`)[0].rows; }
     catch (e) {
       const m = (String(e.message) + String(e.stdout ?? "")).match(/ERROR:\s*(\w+):/);
-      return "ERR " + (m ? m[1] : "unknown");
+      const code = m ? m[1] : "unknown";
+      if (code === "40P01" && attempt === 1) {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1500);
+        return run(sql, 2);
+      }
+      return "ERR " + code;
     }
   };
   /* The department status a round in the post actually sits on.
