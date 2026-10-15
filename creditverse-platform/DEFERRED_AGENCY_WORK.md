@@ -1296,7 +1296,10 @@ roadmap item 5) and the live database holds 1 real organization, 0 lenders,
 0 programs; nobody is blocked today. Both items are product decisions for
 Dee, not defects to fix in passing.**
 
-**1. No interface path creates a BES catalogue lender.** `Lenders.tsx` draws
+**1. No interface path creates a BES catalogue lender — DECIDED BY DEE
+2026-10-15: "each organization keeps its own list."** No shared BES
+catalogue and no new screen; the organization-scoped Lenders page is the
+design. Closed. (Text kept for the record.) `Lenders.tsx` draws
 Add Lender only inside an organization context (`agency.activeOrganization`)
 and `createLender()` always files the lender under that organization. A
 catalogue lender (`organization_id null`, readable by every active

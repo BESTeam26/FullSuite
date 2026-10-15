@@ -134,7 +134,7 @@ Last reconciled: 2026-10-01, after the full review (stale entries corrected agai
 | # | Item | Why it matters today |
 |---|---|---|
 | N-1 | **Bureau Calling team has no members** | The queue routes work to a team with nobody on it; files would sit unassigned. Needs Dee to place somebody, or the queue stays empty by choice. |
-| N-2 | **5 of the 6 active real staff have no pay arrangement** (live count 2026-10-15: Aaron Gallardo, Danicko Carl P. Macasiab, Daniel Charles P. Macasiab, Dee Gallardo, Ivan L. Olympia; Bryan Breva has one) | Payroll skips anyone without one: they get no payslip at all. Set from People › a person › Compensation, or give Claude per person: arrangement (direct BES / via managing partner), basis (hourly · daily · monthly · per cutoff), rate, start date. |
+| N-2 | **3 active staff still need a pay arrangement**: Danicko Carl P. Macasiab, Daniel Charles P. Macasiab, Ivan L. Olympia (live count 2026-10-15; Bryan Breva has one; **Dee and Aaron skipped on Dee's instruction, 2026-10-15 — "we'll have their payroll later"**) | Payroll skips anyone without one: they get no payslip at all. Set from People › a person › Compensation, or give Claude per person: arrangement (direct BES / via managing partner), basis (hourly · daily · monthly · per cutoff), rate, start date. |
 | N-4 | **Four expired, unaccepted invitations remain** (live count, 2026-10-01; everyone named on 09-21 is now active) | Housekeeping only: revoke them or resend if any is still wanted. |
 
 
