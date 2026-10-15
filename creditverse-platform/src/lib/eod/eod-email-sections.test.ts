@@ -3,7 +3,7 @@
  * a lead's email a table of their people, from the stored report.
  */
 import { describe, expect, it } from "vitest";
-import { agentDaySections, reportDocuments, reportSections } from "./eod-email-sections";
+import { agentDaySections, reportDocuments, reportSections, reportStageLine } from "./eod-email-sections";
 import { sectionsText } from "../../../supabase/functions/_shared/email-sections.ts";
 
 const snapshot = {
@@ -71,5 +71,24 @@ describe("a Team Lead's EOD email", () => {
     expect(reportDocuments(teamDoc)).toHaveLength(1);
     const text = sectionsText(reportSections(teamDoc));
     expect(text[0]).toContain("Alvaro D. Gile · Role: Processor · Submitted: Yes · Disputes: 12");
+  });
+});
+
+/* Dee, 2026-10-15: a lead who files before the cutoff is sent the team's
+   figures as of that moment, then the whole day after the cutoff. */
+describe("the stage line under a lead's report", () => {
+  it("names the Eastern time the interim figures were taken and promises the final report", () => {
+    expect(reportStageLine("interim", "2026-10-15T15:23:10.139Z"))
+      .toBe("Team figures as of 11:23 AM Eastern. The final report, with the whole day's work, follows after the midnight cutoff.");
+  });
+  it("says a final report is the whole day", () => {
+    expect(reportStageLine("final", "2026-10-16T04:15:00Z")).toMatch(/^Final report: rebuilt after the midnight cutoff/);
+  });
+  it("prints nothing for an agent's report, which has no stage", () => {
+    expect(reportStageLine(null, null)).toBeNull();
+    expect(reportStageLine(undefined, "2026-10-15T15:23:10.139Z")).toBeNull();
+  });
+  it("never invents a time it cannot parse", () => {
+    expect(reportStageLine("interim", "not a date")).toContain("as of the time it was filed");
   });
 });

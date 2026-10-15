@@ -7219,6 +7219,30 @@ if (runs(70)) {
         select public.eod_auto_submit_sweep();
         select public.eod_auto_submit_sweep() as rows`), 0],
 
+    /* 20261015006000: a lead's report is final at the cutoff and counts every
+       lead below. Fixture teams are outside eod_report (not t.is_fixture), so
+       the document itself is proved against the live rows in rolled-back
+       transactions (PRODUCTION_BACKLOG.md, 2026-10-15); here: the rung rule
+       the membership now follows, the agent path left alone, and the doors. */
+    ["a team lead files one rung up (1); an agent files for no scope (0)",
+      () => p70(LEAD70, `select public.eod_rung_rank('${LEAD70}')::text || ':' || public.eod_rung_rank('${AGENT70}')::text as rows`),
+      /* The fixture lead leads a fixture team, which eod_scopes_led ignores: both rank 0. The
+         real ranks (Danicko 1, Daniel 2, Dee 4) were read live on 2026-10-15. */
+      "0:0"],
+    ["an agent's submission carries no report stage and is never finalised",
+      () => p70(AGENT70, `insert into public.eod_submissions (agency_id, employee_id, work_date, state, submitted_at, submitted_by)
+          values ('${AG70}', '${AGENT70}', (now() at time zone 'America/New_York')::date, 'submitted', now(), '${AGENT70}');
+        set local role postgres;
+        update public.agencies set eod_cutoff_local = '00:00:00' where id = '${AG70}';
+        select public.eod_finalize_reports();
+        select coalesce(o.payload ->> 'report_stage', 'none') || ':' || (e.report_final_at is null)::text as rows
+          from public.eod_submissions e join public.eod_email_outbox o on o.eod_id = e.id
+         where e.employee_id = '${AGENT70}' and e.work_date = (now() at time zone 'America/New_York')::date`), "none:true"],
+    ["the rebuild and the mail queue are cron's, not a signed-in user's",
+      () => p70(ADM70, `select public.eod_finalize_reports() as rows`), "ERR 42501"],
+    ["…and neither is the queue function",
+      () => p70(ADM70, `select 1 as rows from public.eod_queue_email_for((select e from public.eod_submissions e limit 1), 'final')`), "ERR 42501"],
+
     /* 20261015002000: overtime past 8 hours, approved by the lead, paid at
        the regular rate as a compensation adjustment. The agent is given a
        schedule and a monthly package inside the transaction so the engine
@@ -7253,20 +7277,31 @@ if (runs(70)) {
 
     /* 20261015003000: an inactive person holds no work and is never offered
        any. The fixture agent is deactivated inside the probe's transaction. */
+    /* One fixture department row, chosen ONCE and deterministically, held in a
+       temp table: two independent `limit 1` lookups can pick different rows. */
     ["a lead's explicit choice of an inactive person is refused",
       () => p70(ADM70, `set local role postgres;
         update public.agency_memberships set status = 'inactive' where user_id = '${AGENT70}';
+        create temp table row70 on commit drop as
+          select x.client_id, x.department from public.client_department_statuses x
+            join public.fulfillment_clients y on y.id = x.client_id and y.is_fixture
+           where x.assignee_id is distinct from '${AGENT70}'   -- the guard fires only when the assignee CHANGES
+           order by x.client_id, x.department limit 1;
         update public.client_department_statuses s set assignee_id = '${AGENT70}', assignment_method = 'manual_override'
-          from public.fulfillment_clients c where c.id = s.client_id and c.is_fixture and s.client_id = (select client_id from public.client_department_statuses x join public.fulfillment_clients y on y.id = x.client_id and y.is_fixture limit 1)
-          and s.department = (select department from public.client_department_statuses x join public.fulfillment_clients y on y.id = x.client_id and y.is_fixture limit 1);
+          from row70 r where s.client_id = r.client_id and s.department = r.department;
         select 1 as rows`), "ERR 42501"],
     ["…an automatic pick of an inactive person is released with the reason recorded",
       () => p70(ADM70, `set local role postgres;
         update public.agency_memberships set status = 'inactive' where user_id = '${AGENT70}';
+        create temp table row70 on commit drop as
+          select x.client_id, x.department from public.client_department_statuses x
+            join public.fulfillment_clients y on y.id = x.client_id and y.is_fixture
+           where x.assignee_id is distinct from '${AGENT70}'   -- the guard fires only when the assignee CHANGES
+           order by x.client_id, x.department limit 1;
         update public.client_department_statuses s set assignee_id = '${AGENT70}', assignment_method = 'automatic'
-          where (s.client_id, s.department) = (select x.client_id, x.department from public.client_department_statuses x join public.fulfillment_clients y on y.id = x.client_id and y.is_fixture limit 1);
-        select (assignee_id is null)::text || ':' || coalesce(assignment_reason, '') as rows from public.client_department_statuses
-         where (client_id, department) = (select x.client_id, x.department from public.client_department_statuses x join public.fulfillment_clients y on y.id = x.client_id and y.is_fixture limit 1)`),
+          from row70 r where s.client_id = r.client_id and s.department = r.department;
+        select (s.assignee_id is null)::text || ':' || coalesce(s.assignment_reason, '') as rows
+          from public.client_department_statuses s join row70 r on r.client_id = s.client_id and r.department = s.department`),
       "true:Released: the person is no longer active"],
     ["…deactivating a member releases every open assignment they held, and says how many",
       () => p70(ADM70, `set local role postgres;

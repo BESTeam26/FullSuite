@@ -217,8 +217,8 @@ export function EodReportView({ doc, depth = 0 }: { doc: EodReportDoc; depth?: n
  * The header line every document shares: the day, who leads the scope, and
  * where the submission goes.
  */
-function DocMeta({ doc, toName, stored, error }: {
-  doc: EodReportDoc; toName: string | null; stored: boolean; error: string | null;
+function DocMeta({ doc, toName, stored, submitted, error }: {
+  doc: EodReportDoc; toName: string | null; stored: boolean; submitted: boolean; error: string | null;
 }) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -236,18 +236,24 @@ function DocMeta({ doc, toName, stored, error }: {
         <span className="text-amber-700">The stored copy failed to build ({error}); showing nothing rather than a guess.</span>
       )}
       {!stored && (
-        <span className="flex items-center gap-1"><Loader2 className="h-3 w-3" aria-hidden /> Updates as work is completed; frozen when you submit.</span>
+        <span className="flex items-center gap-1">
+          <Loader2 className="h-3 w-3" aria-hidden />
+          {submitted
+            ? "Submitted. The figures keep updating until the midnight cutoff, when the final report is stored and emailed."
+            : "Updates as work is completed, until the midnight cutoff."}
+        </span>
       )}
     </div>
   );
 }
 
-const StoredBadge = ({ stored }: { stored: boolean }) => (
+/** Live preview → Submitted (still updating) → Final, once the cutoff has rebuilt it. */
+const StoredBadge = ({ stored, submitted, final }: { stored: boolean; submitted: boolean; final: boolean }) => (
   <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold",
     stored
       ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
       : "border-border bg-muted text-muted-foreground")}>
-    {stored ? "Submitted" : "Live preview"}
+    {stored ? (final ? "Final" : "Submitted") : submitted ? "Submitted · updating" : "Live preview"}
   </span>
 );
 
@@ -295,8 +301,8 @@ export function EodReportCard({ date }: { date: string }) {
     <>
       {r.docs.map((doc) => (
         <ContentCard key={doc.scope.id} title={`${TITLE[doc.level]} — ${doc.scope.name}`}
-          action={<StoredBadge stored={r.stored} />}>
-          <DocMeta doc={doc} toName={r.routing.toName} stored={r.stored} error={r.error} />
+          action={<StoredBadge stored={r.stored} submitted={r.submittedAt !== null} final={r.finalAt !== null} />}>
+          <DocMeta doc={doc} toName={r.routing.toName} stored={r.stored} submitted={r.submittedAt !== null} error={r.error} />
           <EodReportView doc={doc} />
         </ContentCard>
       ))}

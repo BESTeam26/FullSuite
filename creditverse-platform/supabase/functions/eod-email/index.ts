@@ -37,7 +37,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendEmail, type EmailBrand } from "../_shared/email-template.ts";
-import { agentDaySections, reportDocuments, reportSections } from "../../../src/lib/eod/eod-email-sections.ts";
+import { agentDaySections, reportDocuments, reportSections, reportStageLine } from "../../../src/lib/eod/eod-email-sections.ts";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -116,6 +116,9 @@ function compose(row: OutboxRow, brand: EmailBrand, appUrl: string) {
     ...reportDocuments(p.report).flatMap((doc) => reportSections(doc as Record<string, unknown>)),
   ];
   const hasReport = reportDocuments(p.report).length > 0;
+  /* A lead's mail says whether its team figures are as of the filing time
+     or the whole day (rebuilt after the cutoff). Agents' mails carry none. */
+  const stage = reportStageLine(p.report_stage, p.built_at);
 
   /* The task half of the day, for people whose work is work items. */
   const tasks = [
@@ -188,6 +191,7 @@ function compose(row: OutboxRow, brand: EmailBrand, appUrl: string) {
     heading: levelHeading ?? "End of Day Productivity Report",
     paragraphs: [
       `${employee}\n${day(p.work_date)}`,
+      ...(stage ? [stage] : []),
       ...(Array.isArray(snap?.worked) ? [`TASKS\n${tasks}`] : []),
       ...written,
       ...teamBlocks,
@@ -197,7 +201,9 @@ function compose(row: OutboxRow, brand: EmailBrand, appUrl: string) {
     sections,
     action: { label: "View EOD Report", url: `${appUrl}/app/team-eod` },
     security: [
-      `Sent by ${brand.name} when ${employee} submitted their end-of-day report.`,
+      p.report_stage === "final"
+        ? `Sent by ${brand.name} after the midnight cutoff, with the final figures for ${employee}'s end-of-day report.`
+        : `Sent by ${brand.name} when ${employee} submitted their end-of-day report.`,
       "Reply to this email to reach them.",
     ],
     brand,

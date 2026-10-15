@@ -260,7 +260,48 @@ could make on its own; all three were hers, and she answered them directly.
 
 ## HUMAN GATE — needs Dee or a real operator
 
-- **Three CreditOps rules from Dee, 2026-10-15, AWAITING RELEASE:** (1)
+- **EOD · a lead's report is final at the cutoff and counts every lead
+  below (Dee, 2026-10-15: "I keep seeing 0 when there should be some
+  report. This is not accurate.").** AWAITING RELEASE: migration
+  `20261015006000`, Edge Function `eod-email`, and the Team EOD card.
+  Found on Dee's live 2026-10-15 row: the Organization report is built the
+  moment the lead presses Submit (Dee filed at 11:23 AM Eastern) and is
+  frozen — email, stored copy and Team EOD screen all showed the team at
+  zero for the rest of the day. Also: every team lead was excluded from
+  every report, so Danicko's and Daniel's production could never reach the
+  organization total; and a person in two teams of one unit (Aaron) was
+  counted twice. Now: a person is a row of every report ABOVE the rung
+  they file at; after the midnight cutoff the 15-minute sweep rebuilds each
+  lead's documents and snapshot with the whole day and sends ONE "(final)"
+  email (an auto-submitted lead report gets its document the same way —
+  built by cron it had none); the lead's own screen shows a live build
+  until then ("Submitted · updating" → "Final"); the mail filed before the
+  cutoff says "Team figures as of 11:23 AM Eastern … final report follows".
+  PROVEN against the live rows in rolled-back transactions: the
+  organization report lists CreditOps with 4 members (Danicko, Daniel,
+  Ivan, Kaori; executives are rows of nothing), Dee's row finalises once
+  with one pending "(final)" mail, an agent's submission is untouched, an
+  auto-submitted lead draft gets its team document. Unit tests 223/223.
+  HUMAN TEST REQUIRED: on the first night after release, Dee receives
+  "Organization EOD Report … (final)" shortly after midnight Eastern with
+  the day's real figures, and the Team EOD page shows "Final".
+  **The zeros on 2026-10-15 were also true at 11:23 AM:** nobody but Dee
+  has logged production or an EOD since Julius on 2026-10-09; the new team
+  went live that day.
+
+- **CreditOps · Add Client pre-selected the Admin Team (found 2026-10-15
+  from the matrix's count delta).** The form pre-selected the first team
+  the user LEADS — for Dee, the Admin Team (Corporate) — so two of the
+  three clients she added on 2026-10-15 sit on a management team while the
+  other 1,451 live files have no team. Fixed in `use-teams.ts`: a team is
+  pre-selected only when the user's ceiling requires one; otherwise "No
+  team". AWAITING RELEASE. **Needs Dee's go, a live data write:** clear the
+  team on the two Admin-Team clients (ids `d5ca5628…`, `af13aa4c…`) so they
+  match the rest; the matrix delta (bes.manager 1461 vs 1459) is exactly
+  these two and closes with that write.
+
+- **Three CreditOps rules from Dee, 2026-10-15 — DEPLOYED 2026-10-15 on
+  Dee's "Go, I want them all live now" (`c91318e`, migrations applied):** (1)
   Ready for Processing / Ready for Round 1 / Prio Processing close
   Onboarding with its own closed status and clear every blocker on the
   file (`20261015004000`; four already-ready files, Leslie included, caught
@@ -277,7 +318,7 @@ could make on its own; all three were hers, and she answered them directly.
   assignee from then on (a person's explicit choice is refused with a
   message; a system pick is released with the reason), and makes
   deactivation release the person's open work. Every picker reads
-  `assignablePeople()` — active members only. AWAITING RELEASE.
+  `assignablePeople()` — active members only. DEPLOYED 2026-10-15.
   **Still Dee's:** Onboarding routes to the Client Success / Support team,
   whose three members are all inactive, so no Onboarding file (Leslie
   Caudillo Zamora included) can be assigned until Dee places an active

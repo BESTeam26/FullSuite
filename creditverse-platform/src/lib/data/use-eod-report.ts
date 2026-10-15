@@ -90,6 +90,8 @@ export interface MyEodReport {
   /** True when `docs` came from the submitted row; false when built live. */
   stored: boolean;
   submittedAt: string | null;
+  /** When the stored documents were rebuilt after the cutoff with the whole day; null until then. */
+  finalAt: string | null;
   /** Why a stored build failed, if it did. The submission still went through. */
   error: string | null;
   /** Where this person's submission is sent, and why. */
@@ -116,6 +118,7 @@ export function useMyEodReport(date: string) {
         level: (r.level as EodReportLevel | null) ?? null,
         stored: r.stored === true,
         submittedAt: (r.submitted_at as string | null) ?? null,
+        finalAt: (r.final_at as string | null) ?? null,
         error: (r.error as string | null) ?? null,
         routing: {
           reason: (routing.reason as string | null) ?? null,

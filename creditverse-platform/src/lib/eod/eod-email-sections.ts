@@ -154,6 +154,24 @@ export function reportSections(doc: Row | null | undefined): EmailSection[] {
   return sections;
 }
 
+/**
+ * The line under a lead's heading (Dee, 2026-10-15: "I keep seeing 0").
+ * A lead who files before the cutoff is sent their team's figures AS OF
+ * that moment, and the whole day again after the cutoff — this says which
+ * one the reader is holding. Agents' reports carry no stage and no line.
+ */
+export function reportStageLine(stage: unknown, builtAt: unknown): string | null {
+  if (stage === "interim") {
+    const d = new Date(String(builtAt ?? ""));
+    const at = Number.isNaN(d.getTime())
+      ? "the time it was filed"
+      : d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }) + " Eastern";
+    return `Team figures as of ${at}. The final report, with the whole day's work, follows after the midnight cutoff.`;
+  }
+  if (stage === "final") return "Final report: rebuilt after the midnight cutoff with the whole day's work.";
+  return null;
+}
+
 /** `{documents:[…]}`, or a single bare document from before 2026-09-30. */
 export function reportDocuments(raw: unknown): Row[] {
   if (!raw || typeof raw !== "object") return [];

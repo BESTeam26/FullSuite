@@ -31,6 +31,7 @@ const mine: MyEodReport = {
   level: "division",
   stored: true,
   submittedAt: "2026-09-30T22:05:00Z",
+  finalAt: "2026-10-01T04:15:00Z",
   error: null,
   routing: { reason: "executive", toName: "Aaron Gallardo" },
 };
