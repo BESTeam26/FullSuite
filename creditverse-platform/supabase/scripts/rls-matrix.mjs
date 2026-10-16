@@ -7124,10 +7124,10 @@ if (runs(70)) {
         select public.payroll_auto_sweep();
         select set_config('probe.n', (select count(*)::text from public.payroll_cutoffs), true);
         select public.payroll_auto_sweep();
-        with s as (select * from public.payroll_settings where agency_id = '${AG70}'),
-        p as (select case when extract(day from current_date)::int > s.split_day
-                          then make_date(extract(year from current_date)::int, extract(month from current_date)::int, s.split_day)
-                          else (date_trunc('month', current_date) - interval '1 day')::date end as period_end, s.* from s)
+        with s as (select *, (now() at time zone timezone)::date as today from public.payroll_settings where agency_id = '${AG70}'),
+        p as (select case when extract(day from s.today)::int > s.split_day
+                          then make_date(extract(year from s.today)::int, extract(month from s.today)::int, s.split_day)
+                          else (date_trunc('month', s.today) - interval '1 day')::date end as period_end, s.* from s)
         select ((select count(*) from public.payroll_cutoffs) = current_setting('probe.n')::int
             and (select count(*) from public.payroll_cutoffs c, p where c.period_end = p.period_end) = 1
             and (select bool_and(c.auto_generated
@@ -7269,8 +7269,9 @@ if (runs(70)) {
         insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at, kind)
           select '${AG70}', '${AGENT70}', 'creditops', d, (d + time '11:30') at time zone 'America/New_York', (d + time '19:30') at time zone 'America/New_York', 'work'
             from (select (now() at time zone 'America/New_York')::date - 1 as d) x;
-        set local role authenticated; set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
-        select a.status || ':' || a.late_minutes::text as rows from public.attendance_for((now() at time zone 'America/New_York')::date - 1, (now() at time zone 'America/New_York')::date - 1) a where a.user_id = '${AGENT70}'`), "late:150"],
+        /* Read as the LEAD: attendance follows placement, and the fixture admin holds none. */
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
+        select a.status || ':' || a.late_minutes::text as rows from public.attendance_for((now() at time zone 'America/New_York')::date - 1, (now() at time zone 'America/New_York')::date - 1) a where a.user_id = '${AGENT70}'`), "late:145"],
     ["…and the same clock-in on a FLEXIBLE schedule is present, never late",
       () => p70(ADM70, `select public.set_work_schedule('${AGENT70}', array[1,2,3,4,5,6,7]::smallint[], time '09:00', time '18:00', 60, 30, 5, 'America/New_York', current_date - 90, 'flexible');
         set local role postgres;
@@ -7278,7 +7279,8 @@ if (runs(70)) {
         insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at, kind)
           select '${AG70}', '${AGENT70}', 'creditops', d, (d + time '11:30') at time zone 'America/New_York', (d + time '19:30') at time zone 'America/New_York', 'work'
             from (select (now() at time zone 'America/New_York')::date - 1 as d) x;
-        set local role authenticated; set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        /* Read as the LEAD: attendance follows placement, and the fixture admin holds none. */
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
         select a.status || ':' || a.late_minutes::text as rows from public.attendance_for((now() at time zone 'America/New_York')::date - 1, (now() at time zone 'America/New_York')::date - 1) a where a.user_id = '${AGENT70}'`), "present:0"],
     ["the rebuild and the mail queue are cron's, not a signed-in user's",
       () => p70(ADM70, `select public.eod_finalize_reports() as rows`), "ERR 42501"],
@@ -7289,17 +7291,20 @@ if (runs(70)) {
        the regular rate as a compensation adjustment. The agent is given a
        schedule and a monthly package inside the transaction so the engine
        can derive an hourly rate; the 9-hour day is a clock entry. */
+    /* The 9-hour entry starts 50 hours ago; the engine files it under the
+       ENTRY'S Eastern day, which `current_date - 2` (UTC) is not between
+       20:00 and midnight Eastern (the Eastern-day trap, 2026-10-15). */
     ["a lead approves a 9-hour day: 60 minutes of overtime priced at the derived hourly rate",
       () => p70(PAY70, `${OWN_CALENDAR}
         select public.set_compensation_arrangement('${AGENT70}', 'direct_bes', 'monthly', 2400000, 2400000, null, 'PHP', current_date - 90, 'Probe');
         select public.set_work_schedule('${AGENT70}', '{1,2,3,4,5}', '09:00', '18:00', 60, 30, 5, 'America/New_York', current_date - 90);
         set local role postgres; select set_config('bes.time_system', '1', true);
         insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
-          values ('${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '50 hours', now() - interval '50 hours' + interval '540 minutes');
+          values ('${AG70}', '${AGENT70}', 'creditops', ((now() - interval '50 hours') at time zone 'America/New_York')::date, now() - interval '50 hours', now() - interval '50 hours' + interval '540 minutes');
         select set_config('bes.time_system', '', true);
         set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}'; set local role authenticated;
-        select public.approve_overtime('${AGENT70}', current_date - 2, 'probe');
-        select (amount_cents = round(60 * (select hourly_cents from public.pay_rate_breakdown('${AGENT70}', current_date - 2)) / 60.0))::text
+        select public.approve_overtime('${AGENT70}', ((now() - interval '50 hours') at time zone 'America/New_York')::date, 'probe');
+        select (amount_cents = round(60 * (select hourly_cents from public.pay_rate_breakdown('${AGENT70}', ((now() - interval '50 hours') at time zone 'America/New_York')::date)) / 60.0))::text
              || ':' || financial_scope || ':' || (approved_by = '${LEAD70}')::text as rows
           from public.compensation_adjustments where user_id = '${AGENT70}' and adjustment_type = 'overtime'`), "true:both:true"],
     ["…exactly 8 hours is not overtime",
@@ -7308,14 +7313,14 @@ if (runs(70)) {
         select public.set_work_schedule('${AGENT70}', '{1,2,3,4,5}', '09:00', '18:00', 60, 30, 5, 'America/New_York', current_date - 90);
         set local role postgres; select set_config('bes.time_system', '1', true);
         insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at)
-          values ('${AG70}', '${AGENT70}', 'creditops', current_date - 2, now() - interval '50 hours', now() - interval '50 hours' + interval '480 minutes');
+          values ('${AG70}', '${AGENT70}', 'creditops', ((now() - interval '50 hours') at time zone 'America/New_York')::date, now() - interval '50 hours', now() - interval '50 hours' + interval '480 minutes');
         select set_config('bes.time_system', '', true);
         set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}'; set local role authenticated;
-        select public.approve_overtime('${AGENT70}', current_date - 2, null) as rows`), "ERR 22023"],
+        select public.approve_overtime('${AGENT70}', ((now() - interval '50 hours') at time zone 'America/New_York')::date, null) as rows`), "ERR 22023"],
     ["…an agent cannot approve their own, and staff outside the team cannot approve theirs",
-      () => p70(AGENT70, `select public.approve_overtime('${AGENT70}', current_date - 2, null) as rows`), "ERR 42501"],
+      () => p70(AGENT70, `select public.approve_overtime('${AGENT70}', ((now() - interval '50 hours') at time zone 'America/New_York')::date, null) as rows`), "ERR 42501"],
     ["…nor can staff from another division",
-      () => p70(FUND70, `select public.approve_overtime('${AGENT70}', current_date - 2, null) as rows`), "ERR 42501"],
+      () => p70(FUND70, `select public.approve_overtime('${AGENT70}', ((now() - interval '50 hours') at time zone 'America/New_York')::date, null) as rows`), "ERR 42501"],
 
     /* 20261015003000: an inactive person holds no work and is never offered
        any. The fixture agent is deactivated inside the probe's transaction. */
