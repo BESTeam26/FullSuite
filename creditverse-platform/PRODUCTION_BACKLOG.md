@@ -366,6 +366,18 @@ could make on its own; all three were hers, and she answered them directly.
   reds are the two regressions above, the scoped FundingOps-production
   probe, and statement timeouts. Re-run the full gate after hours only.**
 
+- **Full matrix 2026-10-16 05:46–: 1791/1793, two reds, both fixed and
+  DEPLOYED the same morning.** (1) `20261016001000` — the deactivation
+  guard shipped in `20261015003000` tested the retired role value
+  `agency_owner` instead of the `is_owner` flag, so an owner could be
+  deactivated; the flag is read again (proven: the fixture owner is refused
+  with P0001, an agent still deactivates). (2) The account move had given
+  support@ the owner flag with aaron@'s old "assigned" scope; it now holds
+  the "agency" scope aaron@ had. The notification-bell unit tests time out
+  only when the Mac is loaded (macOS Siri AI / Spotlight at >100% CPU
+  overnight); they pass 5/5 on a quiet machine. The full suite is 2680/2680
+  when run alone.
+
 - **Flexible schedules (D-028) and idle clock-out (D-029 step 1) — DEPLOYED
   2026-10-15 on Dee's "proceed with all deliverables".** Danicko, Daniel,
   Ivan and Kaori are on flexible schedules: hours price pay and overtime,
