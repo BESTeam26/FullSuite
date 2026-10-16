@@ -8,8 +8,8 @@
 import { describe, expect, it } from "vitest";
 import { pickNext, type NextClient } from "./use-next-client";
 
-const f = (clientId: string, department: string, dueAt: string | null): NextClient => ({
-  clientId, department, dueAt, clientName: clientId,
+const f = (clientId: string, department: string, dueAt: string | null, partnerGroupId = "nainoa"): NextClient => ({
+  clientId, department, dueAt, clientName: clientId, partnerGroupId,
 });
 
 describe("the next client", () => {
@@ -18,7 +18,7 @@ describe("the next client", () => {
       f("a", "Dispute", "2026-09-24T00:00:00Z"),
       f("b", "Support", "2026-09-26T00:00:00Z"),
     ];
-    expect(pickNext(queue, "a")?.clientId).toBe("b");
+    expect(pickNext(queue, "a", "nainoa")?.clientId).toBe("b");
   });
 
   it("never hands back the same client through a different department", () => {
@@ -31,18 +31,18 @@ describe("the next client", () => {
       f("a", "Complaints", "2026-09-25T00:00:00Z"),
       f("b", "Support", "2026-09-26T00:00:00Z"),
     ];
-    expect(pickNext(queue, "a")?.clientId).toBe("b");
+    expect(pickNext(queue, "a", "nainoa")?.clientId).toBe("b");
   });
 
   it("is nothing when the queue holds only the file just finished", () => {
     /* Not an error and not a loop: the panel simply closes on a finished
        file, and the button says "Complete Work" rather than promising a next
        one that does not exist. */
-    expect(pickNext([f("a", "Dispute", null)], "a")).toBeNull();
+    expect(pickNext([f("a", "Dispute", null)], "a", "nainoa")).toBeNull();
   });
 
   it("is nothing when there is no queue at all", () => {
-    expect(pickNext([], "a")).toBeNull();
+    expect(pickNext([], "a", "nainoa")).toBeNull();
   });
 
   it("takes the order it is given, which the database sorts by due date", () => {
@@ -50,6 +50,17 @@ describe("the next client", () => {
        button and every other queue read the same priorities. This pins that
        the picker does not re-sort and quietly invent a second order. */
     const queue = [f("late", "Dispute", null), f("soon", "Dispute", "2026-09-24T00:00:00Z")];
-    expect(pickNext(queue, "x")?.clientId).toBe("late");
+    expect(pickNext(queue, "x", "nainoa")?.clientId).toBe("late");
+  });
+
+  it("stays inside the partner workspace: a Tiffany file is never the next after a Nainoa one (Dee, 2026-10-16)", () => {
+    const queue = [
+      f("a", "Dispute", "2026-09-24T00:00:00Z", "nainoa"),
+      f("t", "Dispute", "2026-09-24T06:00:00Z", "tiffany"),   // more urgent than b, but another partner
+      f("b", "Support", "2026-09-26T00:00:00Z", "nainoa"),
+    ];
+    expect(pickNext(queue, "a", "nainoa")?.clientId).toBe("b");
+    /* Nainoa has nothing else: no next, the sheet closes, the person chooses. */
+    expect(pickNext([queue[0], queue[1]], "a", "nainoa")).toBeNull();
   });
 });

@@ -323,7 +323,12 @@ function CreditOpsWorkspace() {
               <div className="p-4 md:p-6">
                 <ClientWorkWorkspace
                   clientId={openCaseId}
-                  onBack={() => navigate(returnTo(location.state, "/app/creditops"))}
+                  /* Back lands on the list that was open; when that address was
+                     lost (a reload, a link opened cold) it lands on THIS
+                     file's own partner — never on a different partner's list
+                     and never on the management default (Dee, 2026-10-16). */
+                  onBack={() => navigate(returnTo(location.state,
+                    caseSelection?.kind === "partner" ? `/app/creditops?partner=${caseSelection.partnerId}` : "/app/creditops"))}
                   backLabel="Back to clients"
                   /* Complete & next client stays in the shell, and carries the
                      same return address so Back still lands on the list. */

@@ -27,6 +27,8 @@ export interface NextClient {
   clientName: string;
   department: string;
   dueAt: string | null;
+  /** The partner whose file it is; null for an organization's own client. */
+  partnerGroupId: string | null;
 }
 
 export const myQueueKey = (userId: string) => ["creditops", "my-queue", userId];
@@ -42,7 +44,7 @@ export function useMyQueue() {
       const sb = requireSupabase();
       const { data, error } = await sb
         .from("creditops_my_work")
-        .select("client_id, client_name, department, due_at")
+        .select("client_id, client_name, department, due_at, outsourcing_group_id")
         .eq("assignee_id", userId)
         /* Nulls last: an undated file is not more urgent than a dated one. */
         .order("due_at", { ascending: true, nullsFirst: false })
@@ -53,6 +55,7 @@ export function useMyQueue() {
         clientName: (r.client_name as string) ?? "",
         department: (r.department as string) ?? "",
         dueAt: r.due_at,
+        partnerGroupId: r.outsourcing_group_id ?? null,
       }));
     },
   });
@@ -65,6 +68,16 @@ export function useMyQueue() {
  * this filters by CLIENT rather than by row — otherwise "next" would hand
  * somebody the file they have just finished, in its other department.
  */
-export function pickNext(queue: readonly NextClient[], currentClientId: string): NextClient | null {
-  return queue.find((r) => r.clientId !== currentClientId) ?? null;
+/**
+ * The next file after this one — inside the SAME partner workspace.
+ *
+ * Dee, 2026-10-16: "retain the view in Nainoa if I am working with Nainoa and
+ * don't bring me to Tiffany, unless I specifically change the list workspace."
+ * The queue is ordered by urgency across every partner; "Complete & next
+ * client" used to follow it anywhere. Now it follows it only within the
+ * partner of the file just finished; when that partner has nothing left the
+ * sheet simply closes on a finished file, and the person chooses where to go.
+ */
+export function pickNext(queue: readonly NextClient[], currentClientId: string, partnerGroupId: string | null | undefined): NextClient | null {
+  return queue.find((r) => r.clientId !== currentClientId && r.partnerGroupId === (partnerGroupId ?? null)) ?? null;
 }

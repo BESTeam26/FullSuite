@@ -188,9 +188,11 @@ export function ClientWorkWorkspace({
      view My Work reads, so the button and the queue cannot disagree about
      what is actionable or whose it is. */
   const queue = useMyQueue();
-  const next = onOpenClient ? pickNext(queue.data ?? [], clientId) : null;
-
   const client = store.clients.find((c) => c.id === clientId);
+  /* Within this file's partner only: finishing a Nainoa file never opens a
+     file of another partner (Dee, 2026-10-16). */
+  const next = onOpenClient && client ? pickNext(queue.data ?? [], clientId, client.outsourcingGroupId ?? null) : null;
+
   const rows = store.getDepartmentStatuses(clientId);
   const current = useMemo(() => currentDepartment(rows), [rows]);
 

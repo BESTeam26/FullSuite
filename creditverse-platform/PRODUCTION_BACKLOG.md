@@ -366,6 +366,18 @@ could make on its own; all three were hers, and she answered them directly.
   reds are the two regressions above, the scoped FundingOps-production
   probe, and statement timeouts. Re-run the full gate after hours only.**
 
+- **CreditOps · the partner workspace stays put (Dee, 2026-10-16: "retain
+  the view in Nainoa if I am working with Nainoa and don't bring me to
+  Tiffany, unless I specifically change the list workspace").** DEPLOYED
+  2026-10-16. Two things moved the view before: "Complete & next client"
+  followed the urgency queue across every partner, and Back after a reload
+  (the return address lost) landed on the management default. Now the next
+  client is the most urgent one WITHIN the same partner (none left → the
+  sheet closes on the finished file), and Back without a return address
+  lands on the open file's own partner. Add Client already returned to the
+  list it was opened from. Tests in `next-client.test.ts`. HUMAN TEST
+  REQUIRED: Complete & next on a Nainoa file lands on another Nainoa file.
+
 - **CreditOps · the Activity column is movable and resizable (Dee,
   2026-10-16: "make this activity movable and resizable but leave enough
   size so it's not completely gone").** DEPLOYED 2026-10-16. From 1280px
