@@ -25,6 +25,8 @@ export interface WorkSchedule {
   graceMinutes: number;
   timezone: string;
   effectiveFrom: string;
+  /** fixed: late against the shift start. flexible: hours are the pay basis only; never late (D-028). */
+  kind: "fixed" | "flexible";
 }
 
 const mapSchedule = (r: Record<string, unknown>): WorkSchedule => ({
@@ -38,6 +40,7 @@ const mapSchedule = (r: Record<string, unknown>): WorkSchedule => ({
   graceMinutes: Number(r.grace_minutes ?? 0),
   timezone: r.timezone as string,
   effectiveFrom: r.effective_from as string,
+  kind: r.schedule_kind === "flexible" ? "flexible" : "fixed",
 });
 
 /** Every schedule row the caller may see — RLS narrows to self/team/all. */
@@ -70,6 +73,7 @@ export interface ScheduleInput {
   graceMinutes: number;
   timezone: string;
   effectiveFrom?: string;
+  kind?: "fixed" | "flexible";
 }
 
 export async function setWorkSchedule(input: ScheduleInput): Promise<void> {
@@ -83,6 +87,7 @@ export async function setWorkSchedule(input: ScheduleInput): Promise<void> {
     p_break_minutes: input.breakMinutes,
     p_grace_minutes: input.graceMinutes,
     p_timezone: input.timezone,
+    p_kind: input.kind ?? "fixed",
     ...(input.effectiveFrom ? { p_effective_from: input.effectiveFrom } : {}),
   });
   if (error) throw error;

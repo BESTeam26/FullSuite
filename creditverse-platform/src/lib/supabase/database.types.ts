@@ -16831,6 +16831,7 @@ export type Database = {
           grace_minutes: number
           id: string
           lunch_minutes: number
+          schedule_kind: string
           shift_end: string
           shift_start: string
           timezone: string
@@ -16846,6 +16847,7 @@ export type Database = {
           grace_minutes?: number
           id?: string
           lunch_minutes?: number
+          schedule_kind?: string
           shift_end: string
           shift_start: string
           timezone?: string
@@ -16861,6 +16863,7 @@ export type Database = {
           grace_minutes?: number
           id?: string
           lunch_minutes?: number
+          schedule_kind?: string
           shift_end?: string
           shift_start?: string
           timezone?: string
@@ -21989,6 +21992,7 @@ export type Database = {
           p_break_minutes: number
           p_effective_from?: string
           p_grace_minutes: number
+          p_kind?: string
           p_lunch_minutes: number
           p_shift_end: string
           p_shift_start: string

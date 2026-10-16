@@ -29,6 +29,9 @@ export function ScheduleEditor({ userId, schedule, onSaved }: {
   const [breaks, setBreaks] = useState(String(schedule?.breakMinutes ?? 30));
   const [grace, setGrace] = useState(String(schedule?.graceMinutes ?? 5));
   const [tz, setTz] = useState(schedule?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
+  /* D-028: flexible = the hours are the pay basis and the overtime line;
+     attendance never marks late and sends no clock-in reminder. */
+  const [kind, setKind] = useState<"fixed" | "flexible">(schedule?.kind ?? "fixed");
 
   const toggleDay = (d: number) =>
     setDays((v) => (v.includes(d) ? v.filter((x) => x !== d) : [...v, d].sort()));
@@ -38,11 +41,13 @@ export function ScheduleEditor({ userId, schedule, onSaved }: {
       {
         userId, workDays: days, shiftStart: start, shiftEnd: end,
         lunchMinutes: Number(lunch), breakMinutes: Number(breaks),
-        graceMinutes: Number(grace), timezone: tz,
+        graceMinutes: Number(grace), timezone: tz, kind,
       },
       {
         onSuccess: () => {
-          toast({ title: "Schedule set", description: "Attendance judges each day by the schedule in force that day." });
+          toast({ title: "Schedule set", description: kind === "flexible"
+            ? "Flexible: the hours set the pay and the overtime line; attendance records presence and hours, never late."
+            : "Attendance judges each day by the schedule in force that day." });
           onSaved?.();
         },
         onError: (e) => toast({ title: "Could not set the schedule", description: (e as Error).message, variant: "destructive" }),
@@ -79,9 +84,18 @@ export function ScheduleEditor({ userId, schedule, onSaved }: {
       <label className="text-muted-foreground">Breaks (m)
         <Input type="number" value={breaks} onChange={(e) => setBreaks(e.target.value)} className="mt-0.5 h-7 w-16 text-xs" />
       </label>
-      <label className="text-muted-foreground">Grace (m)
-        <Input type="number" value={grace} onChange={(e) => setGrace(e.target.value)} className="mt-0.5 h-7 w-16 text-xs" />
+      <label className="text-muted-foreground">Type
+        <select value={kind} onChange={(e) => setKind(e.target.value as "fixed" | "flexible")} aria-label="Schedule type"
+          className="mt-0.5 block h-7 rounded-md border border-border bg-card px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <option value="fixed">Fixed shift</option>
+          <option value="flexible">Flexible hours</option>
+        </select>
       </label>
+      {kind === "fixed" && (
+        <label className="text-muted-foreground">Grace (m)
+          <Input type="number" value={grace} onChange={(e) => setGrace(e.target.value)} className="mt-0.5 h-7 w-16 text-xs" />
+        </label>
+      )}
       <label className="text-muted-foreground">Timezone
         <Input value={tz} onChange={(e) => setTz(e.target.value)} className="mt-0.5 h-7 w-44 text-xs" />
       </label>

@@ -7258,6 +7258,28 @@ if (runs(70)) {
         select coalesce(o.payload ->> 'report_stage', 'none') || ':' || (e.report_final_at is null)::text as rows
           from public.eod_submissions e join public.eod_email_outbox o on o.eod_id = e.id
          where e.employee_id = '${AGENT70}' and e.work_date = (now() at time zone 'America/New_York')::date`), "none:true"],
+    /* 20261015013000 (D-028): a flexible schedule has hours, not a start
+       time. The same late clock-in reads "late" on a fixed schedule and
+       "present" with zero late minutes on a flexible one. Yesterday's
+       Eastern date, fixed in the probe (Eastern-day trap). */
+    ["a late clock-in on a FIXED schedule is late",
+      () => p70(ADM70, `select public.set_work_schedule('${AGENT70}', array[1,2,3,4,5,6,7]::smallint[], time '09:00', time '18:00', 60, 30, 5, 'America/New_York', current_date - 90, 'fixed');
+        set local role postgres;
+        delete from public.time_entries where employee_id = '${AGENT70}' and work_date = (now() at time zone 'America/New_York')::date - 1;
+        insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at, kind)
+          select '${AG70}', '${AGENT70}', 'creditops', d, (d + time '11:30') at time zone 'America/New_York', (d + time '19:30') at time zone 'America/New_York', 'work'
+            from (select (now() at time zone 'America/New_York')::date - 1 as d) x;
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        select a.status || ':' || a.late_minutes::text as rows from public.attendance_for((now() at time zone 'America/New_York')::date - 1, (now() at time zone 'America/New_York')::date - 1) a where a.user_id = '${AGENT70}'`), "late:150"],
+    ["…and the same clock-in on a FLEXIBLE schedule is present, never late",
+      () => p70(ADM70, `select public.set_work_schedule('${AGENT70}', array[1,2,3,4,5,6,7]::smallint[], time '09:00', time '18:00', 60, 30, 5, 'America/New_York', current_date - 90, 'flexible');
+        set local role postgres;
+        delete from public.time_entries where employee_id = '${AGENT70}' and work_date = (now() at time zone 'America/New_York')::date - 1;
+        insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, ended_at, kind)
+          select '${AG70}', '${AGENT70}', 'creditops', d, (d + time '11:30') at time zone 'America/New_York', (d + time '19:30') at time zone 'America/New_York', 'work'
+            from (select (now() at time zone 'America/New_York')::date - 1 as d) x;
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${ADM70}","role":"authenticated"}';
+        select a.status || ':' || a.late_minutes::text as rows from public.attendance_for((now() at time zone 'America/New_York')::date - 1, (now() at time zone 'America/New_York')::date - 1) a where a.user_id = '${AGENT70}'`), "present:0"],
     ["the rebuild and the mail queue are cron's, not a signed-in user's",
       () => p70(ADM70, `select public.eod_finalize_reports() as rows`), "ERR 42501"],
     ["…and neither is the queue function",

@@ -22,7 +22,7 @@ export const prettyTime = (t: string) => {
 
 /** "9:00 AM – 6:00 PM", or the honest absence of one. */
 export const shiftLabel = (s: WorkSchedule | undefined) =>
-  s ? `${prettyTime(s.shiftStart)} – ${prettyTime(s.shiftEnd)}` : "No schedule";
+  s ? (s.kind === "flexible" ? `Flexible · ${scheduledHoursPerDay(s)}h/day` : `${prettyTime(s.shiftStart)} – ${prettyTime(s.shiftEnd)}`) : "No schedule";
 
 /** "America/New_York" → "EDT" today; the zone name itself when Intl cannot say. */
 export const zoneAbbreviation = (timeZone: string, at: Date = new Date()): string => {
@@ -35,9 +35,21 @@ export const zoneAbbreviation = (timeZone: string, at: Date = new Date()): strin
   }
 };
 
+/** Scheduled hours a day, net of lunch: the pay basis and the overtime line. */
+export const scheduledHoursPerDay = (s: WorkSchedule): number => {
+  const [sh, sm] = s.shiftStart.split(":").map(Number);
+  const [eh, em] = s.shiftEnd.split(":").map(Number);
+  return Math.max(0, ((eh * 60 + em) - (sh * 60 + sm) - s.lunchMinutes) / 60);
+};
+
 /** The one-line summary the People profile shows: days, shift, allowances. */
 export const describeSchedule = (s: WorkSchedule | undefined) =>
   s
-    ? `${s.workDays.map((d) => DAY_LETTER[d - 1]).join("")} · ${hhmm(s.shiftStart)}–${hhmm(s.shiftEnd)} ${s.timezone}` +
-      ` · lunch ${s.lunchMinutes}m · breaks ${s.breakMinutes}m · grace ${s.graceMinutes}m`
+    ? s.kind === "flexible"
+      /* D-028: a flexible schedule has hours, not a start time — say so, and
+         never print a grace that nothing reads. */
+      ? `${s.workDays.map((d) => DAY_LETTER[d - 1]).join("")} · Flexible · ${scheduledHoursPerDay(s)}h/day` +
+        ` · lunch ${s.lunchMinutes}m · breaks ${s.breakMinutes}m`
+      : `${s.workDays.map((d) => DAY_LETTER[d - 1]).join("")} · ${hhmm(s.shiftStart)}–${hhmm(s.shiftEnd)} ${s.timezone}` +
+        ` · lunch ${s.lunchMinutes}m · breaks ${s.breakMinutes}m · grace ${s.graceMinutes}m`
     : "No schedule — attendance says nothing about them";

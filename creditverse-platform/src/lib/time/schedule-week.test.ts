@@ -5,7 +5,7 @@ import { cellFor, isoWeekday, summariseWeek, weekDates } from "./schedule-week";
 const schedule = (over: Partial<WorkSchedule> = {}): WorkSchedule => ({
   id: "s1", userId: "u1", workDays: [1, 2, 3, 4, 5], shiftStart: "09:00:00", shiftEnd: "18:00:00",
   lunchMinutes: 60, breakMinutes: 30, graceMinutes: 5, timezone: "America/New_York",
-  effectiveFrom: "2026-01-01", ...over,
+  effectiveFrom: "2026-01-01", kind: "fixed", ...over,
 });
 const leave = (over: Partial<LeaveRequest> = {}): LeaveRequest => ({
   id: "l1", userId: "u1", typeId: "t", typeLabel: "Sick leave", startsOn: "2026-09-22", endsOn: "2026-09-23",

@@ -1438,7 +1438,7 @@ this is a bounded change: an approval-based adjustment kind alongside the
 existing `time_adjustment_requests`, priced by the arrangement — never a
 second pay engine (rules 2, 5; `people-management-state`).
 
-## D-028 — Flexible ("free") schedules (Dee, 2026-10-15) · DOCUMENTED, interim applied
+## D-028 — Flexible ("free") schedules (Dee, 2026-10-15) · BUILT 2026-10-15 ("proceed with all deliverables")
 
 **Dee:** "They have FREE schedule and open overtime as long as their work is
 aligned with the hours." Kaori's pay: 20,000 PHP monthly package.
@@ -1466,7 +1466,16 @@ half-day or absent events, no attendance penalties — and the Schedule page
 shows "Flexible · 8h/day". One column, read in the attendance derivation and
 the schedule display; payroll unchanged.
 
-**Why deferred.** Touches the attendance and performance engines (rule 20,
+**Built 2026-10-15 (`20261015013000`).** `work_schedules.schedule_kind`
+(`fixed` | `flexible`); `set_work_schedule(…, p_kind)`; `attendance_for()`
+never marks a flexible day late (presence, absence and hours only);
+`reminders_sweep()` sends no "time to clock in" to a flexible schedule; the
+Schedule editor has a Type control (Flexible hides Grace); summaries read
+"Flexible · 8h/day". Danicko, Daniel, Ivan and Kaori set flexible from their
+current row. Proven live in rolled-back transactions: the same 11:30 clock-in
+reads late:30 on fixed and present:0 on flexible. Phase 70 probes added.
+
+**Why it was first deferred.** Touches the attendance and performance engines (rule 20,
 architecture change) while scoring has just started; needs Dee to confirm
 which four people are flexible and whether a flexible day has a minimum.
 
