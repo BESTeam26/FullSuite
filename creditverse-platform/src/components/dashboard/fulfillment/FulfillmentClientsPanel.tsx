@@ -104,8 +104,14 @@ export function FulfillmentClientsPanel({
      view: "my work" and "what is falling through" are different questions and
      a lead uses both at once. */
   const [coverageFilter, setCoverageFilter] = useState<CoverageState | null>(null);
-  const coverage = useCreditOpsCoverage();
-  const unstaffed = useUnstaffedDepartments();
+  /* The coverage strip (Active work · Unassigned · Owner away · Overdue · On
+     track, and the four department cards) is OVERALL reporting. Dee,
+     2026-10-16: "on just a partner's workspace we need the partner-related
+     info and no overall reporting." So it is drawn, and fetched, only on the
+     shared Main Client List; a partner folder shows that partner's list. */
+  const inPartnerWorkspace = selectedScope !== "all";
+  const coverage = useCreditOpsCoverage(!inPartnerWorkspace);
+  const unstaffed = useUnstaffedDepartments(!inPartnerWorkspace);
   /* Lifecycle view: active clients by default; history stays one click away. */
   const [lifecycleView, setLifecycleView] = useState<LifecycleView>("active");
   const lifecycleFiltered = useMemo(
@@ -300,13 +306,15 @@ export function FulfillmentClientsPanel({
           aria-label="Lifecycle filter"
         />
       </div>
-      <CreditOpsCoverageStrip
-        rows={coverage.data ?? []}
-        loading={coverage.isPending}
-        active={coverageFilter}
-        onPick={setCoverageFilter}
-        unstaffed={unstaffed.data ?? []}
-      />
+      {!inPartnerWorkspace && (
+        <CreditOpsCoverageStrip
+          rows={coverage.data ?? []}
+          loading={coverage.isPending}
+          active={coverageFilter}
+          onPick={setCoverageFilter}
+          unstaffed={unstaffed.data ?? []}
+        />
+      )}
 
       {/* Dee's CreditOps design, 2026-09-23 — "Quick views: work your list
           your way." The count beside each label is computed from the same

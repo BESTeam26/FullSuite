@@ -32,7 +32,8 @@ export const COVERAGE_STATES: { id: CoverageState; label: string; hint: string }
   { id: "on_track", label: "On track", hint: "Owned, available, and inside the SLA" },
 ];
 
-export function useCreditOpsCoverage() {
+/** `wanted` false: the screen has no use for it (a partner workspace) and no request is made. */
+export function useCreditOpsCoverage(wanted = true) {
   const auth = useAuth();
   const live = auth.mode === "live" && auth.status === "signed-in" && auth.isAgencyStaff;
   return useQuery({
@@ -46,7 +47,7 @@ export function useCreditOpsCoverage() {
       if (error) throw error;
       return (data as unknown as CoverageRow[]) ?? [];
     },
-    enabled: live,
+    enabled: live && wanted,
     /* Short, because this is the screen somebody watches to see whether work is
        being picked up. A stale "2 unassigned" is worse than a slow one. */
     staleTime: 30_000,
@@ -62,7 +63,7 @@ export function useCreditOpsCoverage() {
  * has no staff" look identical for a one-file queue and mean opposite things:
  * the first waits for the sweep, the second needs a person hired onto a team.
  */
-export function useUnstaffedDepartments() {
+export function useUnstaffedDepartments(wanted = true) {
   const auth = useAuth();
   const live = auth.mode === "live" && auth.status === "signed-in" && auth.isAgencyStaff;
   return useQuery({
@@ -73,7 +74,7 @@ export function useUnstaffedDepartments() {
       if (error) throw error;
       return ((data as unknown as { department: string }[]) ?? []).map((r) => r.department);
     },
-    enabled: live,
+    enabled: live && wanted,
     /* A roster changes when somebody joins a team, not minute to minute. */
     staleTime: 5 * 60_000,
   });

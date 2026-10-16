@@ -366,6 +366,15 @@ could make on its own; all three were hers, and she answered them directly.
   reds are the two regressions above, the scoped FundingOps-production
   probe, and statement timeouts. Re-run the full gate after hours only.**
 
+- **CreditOps · a partner workspace shows partner information only (Dee,
+  2026-10-16: "remove this on just the partners workspace … no overall
+  reporting").** DEPLOYED 2026-10-16. The coverage strip (Active work,
+  Unassigned, Owner away, Overdue, On track and the four department cards)
+  is company-wide reporting; it is now drawn, and its two requests made,
+  only on the shared Main Client List. A partner folder shows that
+  partner's list and filters. Cost: two fewer requests per partner-list
+  open.
+
 - **CreditOps · the partner workspace stays put (Dee, 2026-10-16: "retain
   the view in Nainoa if I am working with Nainoa and don't bring me to
   Tiffany, unless I specifically change the list workspace").** DEPLOYED
