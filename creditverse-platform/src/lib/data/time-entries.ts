@@ -30,6 +30,8 @@ export interface TimeEntry {
   durationMinutes?: number;
   /** The system ended it at the 10-hour cap (0236) — the agent forgot. */
   autoStopped: boolean;
+  /** Why the system stopped it: "cap" (10 hours) or "idle" (no activity). Null when a person did. */
+  autoStopReason: "cap" | "idle" | null;
   /** 'work' counts toward production and pay; 'break'/'lunch' are the day's rest. */
   kind: "work" | "break" | "lunch";
 }
@@ -46,6 +48,8 @@ const mapRow = (r: TimeEntryRow): TimeEntry => ({
   endedAt: r.ended_at ?? undefined,
   durationMinutes: r.duration_minutes ?? undefined,
   autoStopped: Boolean(r.auto_stopped),
+  autoStopReason: (r as { auto_stop_reason?: string | null }).auto_stop_reason === "idle" ? "idle"
+    : r.auto_stopped ? "cap" : null,
   kind: ((r as { kind?: string }).kind ?? "work") as TimeEntry["kind"],
 });
 

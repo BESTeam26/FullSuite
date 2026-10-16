@@ -1,5 +1,6 @@
 import { RouteErrorBoundary } from "@/components/common/RouteErrorBoundary";
 import { useNotificationDelivery } from "@/lib/notifications/use-notification-delivery";
+import { useIdleHeartbeat } from "@/lib/time/use-idle-heartbeat";
 import { Suspense, useLayoutEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/dashboard/Sidebar";
@@ -67,6 +68,9 @@ const AgencyShell = () => {
   /* Every new notification reaches the open app at once: toast, desktop
      notification when the tab is not in front, chime, tab-title badge. */
   useNotificationDelivery();
+  /* While clocked in, activity in FullSuite keeps the timer alive; silence
+     stops it at the last activity (D-029). */
+  useIdleHeartbeat();
   return (
     <ViewAsProvider ownRole={own.role} ownCan={own.can}>
       <SidebarStateProvider>

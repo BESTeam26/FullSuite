@@ -69,7 +69,7 @@ export function TodayTimeline({
                    been working the whole span, and the row says so rather than
                    passing the cap off as a shift. */
                 <span className="mt-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-status-warning">
-                  auto-stopped at the cap
+                  {entry.autoStopReason === "idle" ? "auto-stopped: no activity" : "auto-stopped at the cap"}
                 </span>
               )}
             </div>

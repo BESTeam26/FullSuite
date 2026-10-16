@@ -1479,7 +1479,7 @@ reads late:30 on fixed and present:0 on flexible. Phase 70 probes added.
 architecture change) while scoring has just started; needs Dee to confirm
 which four people are flexible and whether a flexible day has a minimum.
 
-## D-029 — Activity tracking and idle clock-out (Dee, 2026-10-15) · DOCUMENTED, not started
+## D-029 — Activity tracking and idle clock-out (Dee, 2026-10-15) · STEP 1 BUILT 2026-10-15 ("proceed with all deliverables")
 
 **Dee:** "A capability that the app can track the mouse click and keyboard
 or screen activity to ensure they are working, especially for work
@@ -1507,6 +1507,20 @@ and a privacy decision for Dee to make in writing with the team.
    figure beside time logged, from the same heartbeat — not keystroke
    content, not screenshots. Shown to the person and their lead.
 
-**Why deferred.** Feature expansion outside the stabilization pass (rule
+**Step 1 built 2026-10-15 (`20261015014000`).** `agencies.idle_clock_out_minutes`
+(BES: 15); `time_entries.last_activity_at`, `auto_stop_reason` (cap | idle);
+`time_heartbeat()` — the app sends it about once a minute while the person
+is active in FullSuite (click, key, scroll, touch, tab returning; never from a
+hidden tab); `auto_stop_idle_timers()` every five minutes stops an open WORK
+timer whose last heartbeat is older than the window, AT that heartbeat, and
+tells the agent and their leads with the idle wording; a timer that never
+sent a heartbeat is left to the 10-hour cap. My Time shows "auto-stopped: no
+activity". Proven live in rolled-back transactions; four phase-70 probes.
+**Assumptions (Dee to change if wrong):** 15 minutes; idle time is unpaid
+(the timer ends at the last activity; an adjustment request restores it);
+only work timers, never breaks or lunch. Step 2 (activity minutes beside time
+logged) not built.
+
+**Why it was first deferred.** Feature expansion outside the stabilization pass (rule
 20); step 1 needs Dee's idle threshold and a decision on whether idle time is
 unpaid; step 2 is a workforce-policy decision.

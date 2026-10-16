@@ -67,6 +67,7 @@ const seg = (
     : new Date(NOW.getTime() - (startMinutesAgo - lengthMinutes) * 60_000).toISOString(),
   durationMinutes: lengthMinutes ?? undefined,
   autoStopped: false,
+  autoStopReason: null,
   kind,
   ...over,
 });

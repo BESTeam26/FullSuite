@@ -19,7 +19,8 @@ const NOW = new Date("2026-09-17T18:30:00.000Z");
 const entry = (over: Partial<TimeEntry> = {}): TimeEntry => ({
   id: "e1", divisionId: "creditops", workDate: "2026-09-17",
   startedAt: "2026-09-17T18:14:00.000Z", durationMinutes: undefined,
-  autoStopped: false, kind: "work", ...over,
+  autoStopped: false,
+  autoStopReason: null, kind: "work", ...over,
 });
 
 const noop = () => undefined;

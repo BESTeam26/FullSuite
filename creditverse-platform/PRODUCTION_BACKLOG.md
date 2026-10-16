@@ -366,6 +366,18 @@ could make on its own; all three were hers, and she answered them directly.
   reds are the two regressions above, the scoped FundingOps-production
   probe, and statement timeouts. Re-run the full gate after hours only.**
 
+- **Flexible schedules (D-028) and idle clock-out (D-029 step 1) — DEPLOYED
+  2026-10-15 on Dee's "proceed with all deliverables".** Danicko, Daniel,
+  Ivan and Kaori are on flexible schedules: hours price pay and overtime,
+  attendance never marks them late, no clock-in reminders. Idle clock-out:
+  15 minutes without activity in FullSuite stops a running work timer at the
+  last activity, labelled "auto-stopped: no activity", agent and lead told;
+  no heartbeat ever (a build without it, a phone that could not) → left to
+  the 10-hour cap. HUMAN TEST REQUIRED: an agent clocks in, leaves the
+  laptop asleep 20 minutes, and finds the timer stopped at the last
+  activity with the notice. Cost scales with: one request per clocked-in
+  person per active minute.
+
 - **Slow season team shape (Dee, 2026-10-15: "All support to Kaori. All
   dispute to Dan and Daniel. All complaints to Ivan. Everyone reports to
   Dee. We removed all other teams.").** RUN 2026-10-15 by

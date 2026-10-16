@@ -191,6 +191,7 @@ export type Database = {
           eod_cutoff_local: string | null
           eod_timezone: string
           id: string
+          idle_clock_out_minutes: number | null
           name: string
           push_public_key: string | null
           slug: string
@@ -203,6 +204,7 @@ export type Database = {
           eod_cutoff_local?: string | null
           eod_timezone?: string
           id?: string
+          idle_clock_out_minutes?: number | null
           name: string
           push_public_key?: string | null
           slug: string
@@ -215,6 +217,7 @@ export type Database = {
           eod_cutoff_local?: string | null
           eod_timezone?: string
           id?: string
+          idle_clock_out_minutes?: number | null
           name?: string
           push_public_key?: string | null
           slug?: string
@@ -15841,6 +15844,7 @@ export type Database = {
       time_entries: {
         Row: {
           agency_id: string
+          auto_stop_reason: string | null
           auto_stopped: boolean
           client_id: string | null
           created_at: string
@@ -15851,6 +15855,7 @@ export type Database = {
           ended_at: string | null
           id: string
           kind: string
+          last_activity_at: string | null
           organization_id: string | null
           partner_group_id: string | null
           started_at: string
@@ -15860,6 +15865,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          auto_stop_reason?: string | null
           auto_stopped?: boolean
           client_id?: string | null
           created_at?: string
@@ -15870,6 +15876,7 @@ export type Database = {
           ended_at?: string | null
           id?: string
           kind?: string
+          last_activity_at?: string | null
           organization_id?: string | null
           partner_group_id?: string | null
           started_at?: string
@@ -15879,6 +15886,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          auto_stop_reason?: string | null
           auto_stopped?: boolean
           client_id?: string | null
           created_at?: string
@@ -15889,6 +15897,7 @@ export type Database = {
           ended_at?: string | null
           id?: string
           kind?: string
+          last_activity_at?: string | null
           organization_id?: string | null
           partner_group_id?: string | null
           started_at?: string
@@ -18679,6 +18688,7 @@ export type Database = {
         Returns: string
       }
       auth_user_by_email: { Args: { p_email: string }; Returns: string }
+      auto_stop_idle_timers: { Args: never; Returns: number }
       auto_stop_stale_timers: { Args: never; Returns: number }
       backfill_primary_partner_contacts: {
         Args: never
@@ -22182,6 +22192,7 @@ export type Database = {
           reactions: Json
         }[]
       }
+      time_heartbeat: { Args: never; Returns: boolean }
       time_wide_agency_ids: { Args: never; Returns: string[] }
       timer_cap: { Args: never; Returns: string }
       to_service: {

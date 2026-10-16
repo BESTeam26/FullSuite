@@ -7282,6 +7282,39 @@ if (runs(70)) {
         /* Read as the LEAD: attendance follows placement, and the fixture admin holds none. */
         set local role authenticated; set local request.jwt.claims = '{"sub":"${LEAD70}","role":"authenticated"}';
         select a.status || ':' || a.late_minutes::text as rows from public.attendance_for((now() at time zone 'America/New_York')::date - 1, (now() at time zone 'America/New_York')::date - 1) a where a.user_id = '${AGENT70}'`), "present:0"],
+    /* 20261015014000 (D-029): the heartbeat stamps the caller's own open work
+       timer; the idle sweep stops a silent timer AT its last heartbeat and
+       tells the agent and lead; a timer that never beat is left to the cap. */
+    ["a heartbeat stamps the caller's own open work timer, and nobody else's",
+      () => p70(AGENT70, `set local role postgres; select set_config('bes.time_system','1',true);
+        delete from public.time_entries where employee_id in ('${AGENT70}','${FUND70}') and ended_at is null;
+        insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, kind)
+          values ('${AG70}', '${AGENT70}', 'creditops', (now() at time zone 'America/New_York')::date, now() - interval '30 minutes', 'work'),
+                 ('${AG70}', '${FUND70}', 'fundingops', (now() at time zone 'America/New_York')::date, now() - interval '30 minutes', 'work');
+        select set_config('bes.time_system','',true);
+        set local role authenticated; set local request.jwt.claims = '{"sub":"${AGENT70}","role":"authenticated"}';
+        select public.time_heartbeat();
+        set local role postgres;
+        select (select (last_activity_at is not null)::text from public.time_entries where employee_id='${AGENT70}' and ended_at is null)
+            || ':' || (select (last_activity_at is not null)::text from public.time_entries where employee_id='${FUND70}' and ended_at is null) as rows`), "true:false"],
+    ["…twenty silent minutes stop the timer at the last heartbeat, as idle, and the agent and lead are told",
+      () => p70(AGENT70, `set local role postgres; select set_config('bes.time_system','1',true);
+        delete from public.time_entries where employee_id = '${AGENT70}' and ended_at is null;
+        insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, last_activity_at, kind)
+          values ('${AG70}', '${AGENT70}', 'creditops', (now() at time zone 'America/New_York')::date, now() - interval '90 minutes', now() - interval '20 minutes', 'work');
+        update public.agencies set idle_clock_out_minutes = 15 where id = '${AG70}';
+        select public.auto_stop_idle_timers();
+        select (select auto_stopped::text || ':' || auto_stop_reason || ':' || (ended_at = last_activity_at)::text from public.time_entries where employee_id='${AGENT70}' order by started_at desc limit 1)
+            || ':' || (select count(*) from public.notifications where created_at >= now() and entity_type='time_entry' and recipient_id in ('${AGENT70}','${LEAD70}'))::text as rows`), "true:idle:true:2"],
+    ["…a timer that never sent a heartbeat is left to the cap, never idle-stopped",
+      () => p70(AGENT70, `set local role postgres; select set_config('bes.time_system','1',true);
+        delete from public.time_entries where employee_id = '${AGENT70}' and ended_at is null;
+        insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, kind)
+          values ('${AG70}', '${AGENT70}', 'creditops', (now() at time zone 'America/New_York')::date, now() - interval '3 hours', 'work');
+        update public.agencies set idle_clock_out_minutes = 15 where id = '${AG70}';
+        select public.auto_stop_idle_timers() as rows`), 0],
+    ["…and the idle sweep is cron's, not a signed-in user's",
+      () => p70(ADM70, `select public.auto_stop_idle_timers() as rows`), "ERR 42501"],
     ["the rebuild and the mail queue are cron's, not a signed-in user's",
       () => p70(ADM70, `select public.eod_finalize_reports() as rows`), "ERR 42501"],
     ["…and neither is the queue function",
