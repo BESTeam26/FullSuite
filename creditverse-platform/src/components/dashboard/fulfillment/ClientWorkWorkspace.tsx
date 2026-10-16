@@ -27,8 +27,11 @@
  * behind `ops.manage`; permanent delete remains owner-only in the database.
  */
 
-import { useMemo, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeftRight, ChevronRight } from "lucide-react";
+import {
+  railWidthForPointer, readRailLayout, writeRailLayout, clampRailWidth, type RailLayout,
+} from "@/lib/fulfillment/activity-rail-layout";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -148,6 +151,39 @@ export function ClientWorkWorkspace({
   const [manageOpen, setManageOpen] = useState(false);
   const isMobile = useIsMobile();
 
+  /* ── THE ACTIVITY COLUMN: MOVABLE AND RESIZABLE (Dee, 2026-10-16) ──
+     "Make this activity movable and resizable but leave enough size so it's
+     not completely gone." Beside the work area from 1280px up: a drag handle
+     on its inner edge sets the width (floor 280px, ceiling 640px, and the
+     work area keeps 520px whatever happens — activity-rail-layout.ts), and
+     one control moves it to the other side. Remembered on this device. Below
+     1280px it stacks underneath exactly as before. */
+  const wide = useWide();
+  const [rail, setRail] = useState<RailLayout>(() => readRailLayout(typeof localStorage === "undefined" ? null : localStorage));
+  const gridRef = useRef<HTMLDivElement>(null);
+  const persist = (next: RailLayout) => { setRail(next); writeRailLayout(typeof localStorage === "undefined" ? null : localStorage, next); };
+  const startRailDrag = (e: React.PointerEvent) => {
+    const box = gridRef.current?.getBoundingClientRect();
+    if (!box) return;
+    e.preventDefault();
+    let latest = rail;
+    const move = (ev: PointerEvent) => {
+      latest = { ...latest, width: railWidthForPointer(ev.clientX, box.left, box.width, latest.side) };
+      setRail(latest);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      persist(latest);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  const nudgeRail = (delta: number) => {
+    const box = gridRef.current?.getBoundingClientRect();
+    persist({ ...rail, width: clampRailWidth(rail.width + delta, box?.width ?? Number.MAX_SAFE_INTEGER) });
+  };
+
   /* The next file this person should work — most urgent first, from the same
      view My Work reads, so the button and the queue cannot disagree about
      what is actionable or whose it is. */
@@ -232,12 +268,15 @@ export function ClientWorkWorkspace({
        already had. */
     /* `minmax(0,1fr)` below xl: an implicit grid column sizes to its widest
        content, which pushed the file 50px past a 390px phone (2026-10-03). */
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 text-xs xl:grid-cols-[minmax(0,1fr)_360px]">
-      {/* 360, not 400: this now sits to the right of the CreditOps tree inside
-          the shell, so the pane is ~290px narrower than the page it used to
-          own. The rail gives up 40px so the work area keeps a usable width at
-          1280 with the tree open. Below `xl` the rail stacks underneath. */}
-      <div className="min-w-0 space-y-4">
+    <div
+      ref={gridRef}
+      className="grid grid-cols-[minmax(0,1fr)] gap-4 text-xs"
+      style={wide ? { gridTemplateColumns: rail.side === "right" ? `minmax(0,1fr) ${rail.width}px` : `${rail.width}px minmax(0,1fr)` } : undefined}
+    >
+      {/* The default 360px (not 400) sits to the right of the CreditOps tree
+          inside the shell, so the work area keeps a usable width at 1280 with
+          the tree open. Below `xl` the rail stacks underneath. */}
+      <div className={cn("min-w-0 space-y-4", wide && rail.side === "left" && "order-2")}>
         <ClientFileHeader
           client={client}
           current={current}
@@ -365,9 +404,56 @@ export function ClientWorkWorkspace({
 
       {/* Sticky so the conversation stays beside the work rather than
           scrolling away from it; its own scrollbar, like ClickUp's. */}
-      <div className="xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]">{activity}</div>
+      <div className={cn("relative min-w-0 xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]", wide && rail.side === "left" && "order-1")}>
+        {wide && (
+          <>
+            {/* The handle on the rail's inner edge: drag, or focus it and use
+                the arrow keys. Wide enough to grab, invisible until hovered. */}
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize the Activity column"
+              aria-valuenow={rail.width}
+              tabIndex={0}
+              onPointerDown={startRailDrag}
+              onKeyDown={(e) => {
+                const grow = rail.side === "right" ? "ArrowLeft" : "ArrowRight";
+                const shrink = rail.side === "right" ? "ArrowRight" : "ArrowLeft";
+                if (e.key === grow) { e.preventDefault(); nudgeRail(24); }
+                if (e.key === shrink) { e.preventDefault(); nudgeRail(-24); }
+              }}
+              className={cn(
+                "absolute top-0 z-10 h-full w-3 cursor-col-resize rounded transition-colors hover:bg-primary/20 focus-visible:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                rail.side === "right" ? "-left-3.5" : "-right-3.5",
+              )}
+            />
+            <button
+              type="button"
+              onClick={() => persist({ ...rail, side: rail.side === "right" ? "left" : "right" })}
+              className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={rail.side === "right" ? "Move Activity to the left" : "Move Activity to the right"}
+              title={rail.side === "right" ? "Move Activity to the left" : "Move Activity to the right"}
+            >
+              <ArrowLeftRight className="h-3 w-3" aria-hidden /> Move
+            </button>
+          </>
+        )}
+        {activity}
+      </div>
     </div>
   );
+}
+
+/** From 1280px up the Activity column sits beside the work area. */
+function useWide(): boolean {
+  const [wide, setWide] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 1280px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1280px)");
+    const on = () => setWide(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return wide;
 }
 
 /**

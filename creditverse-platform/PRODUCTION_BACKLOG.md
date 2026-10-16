@@ -366,6 +366,17 @@ could make on its own; all three were hers, and she answered them directly.
   reds are the two regressions above, the scoped FundingOps-production
   probe, and statement timeouts. Re-run the full gate after hours only.**
 
+- **CreditOps · the Activity column is movable and resizable (Dee,
+  2026-10-16: "make this activity movable and resizable but leave enough
+  size so it's not completely gone").** DEPLOYED 2026-10-16. From 1280px
+  up: a drag handle on the column's inner edge (or focus it and use the
+  arrow keys) sets its width between 280px and 640px, and the work area
+  always keeps 520px; a Move control puts Activity on the left or right.
+  Remembered on the device. Below 1280px it stacks underneath as before.
+  Pure rules and four tests in `activity-rail-layout.ts`. UI VERIFIED by
+  typecheck, tests and build only — HUMAN TEST REQUIRED: Dee drags the
+  handle and moves the column.
+
 - **Full matrix 2026-10-16 05:46–: 1791/1793, two reds, both fixed and
   DEPLOYED the same morning.** (1) `20261016001000` — the deactivation
   guard shipped in `20261015003000` tested the retired role value
