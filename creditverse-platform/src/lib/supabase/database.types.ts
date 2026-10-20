@@ -20164,7 +20164,10 @@ export type Database = {
         Args: { p_agency: string; p_month: number; p_year: number }
         Returns: number
       }
-      generate_payroll: { Args: { p_cutoff: string }; Returns: number }
+      generate_payroll: {
+        Args: { p_cutoff: string; p_user?: string }
+        Returns: number
+      }
       ghl_agency_status: {
         Args: never
         Returns: {
@@ -21361,11 +21364,29 @@ export type Database = {
         }[]
       }
       payroll_auto_sweep: { Args: never; Returns: undefined }
-      payroll_generate_internal: { Args: { p_cutoff: string }; Returns: number }
+      payroll_generate_internal: {
+        Args: { p_cutoff: string; p_user?: string }
+        Returns: number
+      }
       payroll_people: {
         Args: never
         Returns: {
           user_id: string
+        }[]
+      }
+      payroll_period_summary: {
+        Args: { p_cutoff?: string; p_from: string; p_to: string }
+        Returns: {
+          basis: string
+          currency: string
+          full_name: string
+          gross_cents: number
+          hourly_cents: number
+          payslip_id: string
+          payslip_status: string
+          rate_cents: number
+          user_id: string
+          work_minutes: number
         }[]
       }
       payroll_recompute_for_entry: {

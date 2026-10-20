@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import {
   adjustPayslip, cancelLeave, createCutoff, decideLeave, fetchAttendance,
   fetchCutoffs, fetchLeaveTypes, fetchMyLeave, fetchPayRates,
-  fetchPayslips, fetchMyPayslips, fetchPendingLeave, fetchTeamUpcomingLeave, fetchSchedules, generatePayroll,
+  fetchPayslips, fetchMyPayslips, fetchPendingLeave, fetchTeamUpcomingLeave, fetchSchedules, generatePayroll, fetchPayrollPeriodSummary,
   fetchPayrollSettings,
   fetchFxRates,
   addFxRate, releasePayroll, setPayRate, setPayrollSettings,
@@ -222,6 +222,11 @@ export function usePayrollActions() {
       onSuccess: refresh,
     }),
     generate: useMutation({ mutationFn: (id: string) => generatePayroll(id), onSuccess: refresh }),
+    /* One person's payslip, from the simple payroll table's row button. */
+    generateFor: useMutation({
+      mutationFn: (v: { cutoffId: string; userId: string }) => generatePayroll(v.cutoffId, v.userId),
+      onSuccess: refresh,
+    }),
     adjust: useMutation({
       mutationFn: (v: { payslipId: string; cents: number; note: string }) =>
         adjustPayslip(v.payslipId, v.cents, v.note),
@@ -252,6 +257,16 @@ export function useAddFxRate() {
          conversion. */
       void qc.invalidateQueries({ queryKey: ["people", "payslips"] });
     },
+  });
+}
+
+export function usePayrollPeriodSummary(from: string | null, to: string | null, cutoffId: string | null) {
+  const { live } = useLive();
+  return useQuery({
+    queryKey: ["people", "payroll", "summary", from, to, cutoffId],
+    queryFn: () => fetchPayrollPeriodSummary(from!, to!, cutoffId),
+    enabled: live && !!from && !!to,
+    staleTime: 30_000,
   });
 }
 

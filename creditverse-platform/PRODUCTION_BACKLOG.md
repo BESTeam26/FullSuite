@@ -366,6 +366,22 @@ could make on its own; all three were hers, and she answered them directly.
   reds are the two regressions above, the scoped FundingOps-production
   probe, and statement timeouts. Re-run the full gate after hours only.**
 
+- **Payroll, simply (Dee, 2026-10-20: "too chaotic … Agent Name · Running
+  Hours · Rate · Generate Payslip, on the admin view").** DEPLOYED
+  2026-10-20. People › Payroll and Finance › Payroll now open on one table
+  for the pay period in progress: each person the caller may pay, hours
+  worked so far (the engine's payable minutes), the rate in force with its
+  derived hour, the payslip if computed, and a per-row Generate / Regenerate
+  button that creates the period's cutoff when needed. One request
+  (`payroll_period_summary`, agent side only). Everything that was there —
+  compensation roster, cutoffs, adjustments, release, exchange rate,
+  automation — is one "Details" disclosure below, unchanged. Proven live:
+  Dee and Aaron see six people, an agent sees nobody, a released cutoff
+  refuses, one person's payslip generates alone. HUMAN TEST REQUIRED: Dee
+  presses Generate on one row. **Found while proving: Danicko's rate was
+  changed from 25,000 to 20,000 PHP on 2026-10-19 (reason "Update", from
+  the app) — Dee to confirm which is right.**
+
 - **No time limit on a timer and no automatic kick (Dee, 2026-10-20;
   Danicko: "it clocks out by itself even with activity").** DEPLOYED
   2026-10-20. Idle clock-out OFF live at 10:58 ET (it had stopped nine

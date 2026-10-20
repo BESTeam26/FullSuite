@@ -43,6 +43,7 @@ const OrganizationStructure = lazy(() => import("@/components/agency/Organizatio
 const TeamsManager = lazy(() => import("@/components/agency/TeamsManager").then((m) => ({ default: m.TeamsManager })));
 const PositionsSection = lazy(() => import("@/components/settings/sections/PositionsSection").then((m) => ({ default: m.PositionsSection })));
 const OrgChart = lazy(() => import("@/components/agency/OrgChart").then((m) => ({ default: m.OrgChart })));
+const PayrollSimple = lazy(() => import("@/components/agency/finance/PayrollSimple").then((m) => ({ default: m.PayrollSimple })));
 const PayrollPanel = lazy(() => import("@/components/agency/finance/PayrollPanel").then((m) => ({ default: m.PayrollPanel })));
 const CompensationRoster = lazy(() => import("@/components/agency/people/CompensationRoster").then((m) => ({ default: m.CompensationRoster })));
 
@@ -121,10 +122,22 @@ export const PeopleTeamsPage = () => {
         {section.slug === "performance" && <TeamPerformance />}
         {/* Pay before payroll: "what are we paying this person?" is the
             question asked far more often than "generate the cutoff". */}
+        {/* Dee, 2026-10-20: "Agent Name · Running Hours · Rate · Generate
+            Payslip." The simple table first; cutoffs, compensation, the
+            exchange rate and automation are one disclosure below it, kept
+            exactly as they were. */}
         {section.slug === "payroll" && (
           <div className="space-y-3">
-            <CompensationRoster />
-            <PayrollPanel />
+            <PayrollSimple />
+            <details className="group rounded-xl border border-border bg-card">
+              <summary className="cursor-pointer select-none px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                Details: compensation, cutoffs, adjustments, release, exchange rate, automation
+              </summary>
+              <div className="space-y-3 border-t border-border p-3">
+                <CompensationRoster />
+                <PayrollPanel />
+              </div>
+            </details>
           </div>
         )}
       </Suspense>

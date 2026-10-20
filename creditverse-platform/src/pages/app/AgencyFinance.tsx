@@ -42,6 +42,7 @@ import { PaymentsLedger } from "@/components/agency/finance/PaymentsLedger";
 import { PaymentMatching } from "@/components/agency/finance/PaymentMatching";
 import { FinanceReports } from "@/components/agency/finance/FinanceReports";
 import { PayrollPanel } from "@/components/agency/finance/PayrollPanel";
+import { PayrollSimple } from "@/components/agency/finance/PayrollSimple";
 import { ReceivablesTable } from "@/components/agency/finance/ReceivablesTable";
 import { ExpensesPanel } from "@/components/agency/finance/ExpensesPanel";
 import { AllInvoicesPanel } from "@/components/agency/finance/AllInvoicesPanel";
@@ -169,7 +170,17 @@ export const AgencyFinance = () => {
           {current.slug === "payments" && <PaymentsLedger />}
           {current.slug === "billing" && <PartnerBillingHealth />}
           {current.slug === "expenses" && <ExpensesPanel month={month} />}
-          {current.slug === "payroll" && <PayrollPanel />}
+          {current.slug === "payroll" && (
+            <div className="space-y-3">
+              <PayrollSimple />
+              <details className="group rounded-xl border border-border bg-card">
+                <summary className="cursor-pointer select-none px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  Details: cutoffs, adjustments, release, exchange rate, automation
+                </summary>
+                <div className="border-t border-border p-3"><PayrollPanel /></div>
+              </details>
+            </div>
+          )}
           {current.slug === "reports" && <FinanceReports />}
           {current.slug === "attention" && <BillingAttentionQueue />}
           {current.slug === "matching" && <PaymentMatching />}

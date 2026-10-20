@@ -536,9 +536,37 @@ export async function createCutoff(agencyId: string, periodStart: string, period
   }
 }
 
-export async function generatePayroll(cutoffId: string): Promise<number> {
+/** One row of the simple payroll screen: a person the caller may pay (Dee, 2026-10-20). */
+export interface PayrollPersonSummary {
+  userId: string;
+  fullName: string;
+  workMinutes: number;
+  basis: string | null;
+  rateCents: number | null;
+  currency: string | null;
+  hourlyCents: number | null;
+  payslipId: string | null;
+  grossCents: number | null;
+  payslipStatus: "draft" | "released" | null;
+}
+
+/** Everything the simple payroll table shows, in one request, computed by the database. */
+export async function fetchPayrollPeriodSummary(from: string, to: string, cutoffId: string | null): Promise<PayrollPersonSummary[]> {
   const sb = requireSupabase();
-  const { data, error } = await sb.rpc("generate_payroll", { p_cutoff: cutoffId });
+  const { data, error } = await sb.rpc("payroll_period_summary", { p_from: from, p_to: to, p_cutoff: cutoffId ?? undefined });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    userId: r.user_id, fullName: r.full_name ?? "", workMinutes: Number(r.work_minutes ?? 0),
+    basis: r.basis ?? null, rateCents: r.rate_cents === null ? null : Number(r.rate_cents),
+    currency: r.currency ?? null, hourlyCents: r.hourly_cents === null ? null : Number(r.hourly_cents),
+    payslipId: r.payslip_id ?? null, grossCents: r.gross_cents === null ? null : Number(r.gross_cents),
+    payslipStatus: r.payslip_status === "draft" || r.payslip_status === "released" ? r.payslip_status : null,
+  }));
+}
+
+export async function generatePayroll(cutoffId: string, userId?: string): Promise<number> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc("generate_payroll", { p_cutoff: cutoffId, ...(userId ? { p_user: userId } : {}) });
   if (error) throw error;
   return Number(data ?? 0);
 }
