@@ -37,6 +37,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { useMyTimeAdjustments, useRequestTimeAdjustment } from "@/lib/data/use-time-adjustments";
 import { useLeaveActions, useLeaveTypes, useMyLeave, useSchedules } from "@/lib/data/use-people";
 import { useAgencyPartners } from "@/lib/data/use-agency-partners";
+import { useEodCutoff } from "@/lib/data/use-eod-day";
 import { formatDate } from "@/lib/format-date";
 import type { TimeAdjustmentRequest, TimeEntry } from "@/lib/data/time-entries";
 import {
@@ -140,7 +141,10 @@ export const MyTimeSection = () => {
   ].filter((x): x is string => !!x);
   /* A timer left running overnight quietly corrupts production and End of Day,
      so it is said out loud. Stopping it stays the person's own act. */
-  const stale = isStaleTimer(t.openEntry);
+  /* The agency's own cap, or none (Dee, 2026-10-20: no time limit at BES). */
+  const agencyRules = useEodCutoff();
+  const capHours = agencyRules.data?.timerCapHours ?? null;
+  const stale = isStaleTimer(t.openEntry, new Date(), capHours);
 
   const cannotStart = t.isMutating || !t.entries || t.source === "demo";
   const start = (r: StartRequest) => t.clockIn(r.divisionId, r.taskNote, r.partnerGroupId);
@@ -276,7 +280,7 @@ export const MyTimeSection = () => {
           <AlertTriangle className="h-4 w-4 shrink-0 text-status-warning" />
           <p className="min-w-0 flex-1">
             This timer has been running for {describeRunningFor(t.openEntry)} — longer than the
-            {" "}{STALE_TIMER_HOURS}-hour cap. Clocking out records AT MOST {STALE_TIMER_HOURS} hours
+            {" "}{capHours ?? STALE_TIMER_HOURS}-hour cap. Clocking out records AT MOST {capHours ?? STALE_TIMER_HOURS} hours
             (the system also stops forgotten timers on its own and tells you and your lead). If the
             real time differs, request an adjustment on the entry below — your lead approves it.
           </p>

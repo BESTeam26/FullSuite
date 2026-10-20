@@ -1479,7 +1479,7 @@ reads late:30 on fixed and present:0 on flexible. Phase 70 probes added.
 architecture change) while scoring has just started; needs Dee to confirm
 which four people are flexible and whether a flexible day has a minimum.
 
-## D-029 — Activity tracking and idle clock-out (Dee, 2026-10-15) · STEP 1 BUILT 2026-10-15 ("proceed with all deliverables")
+## D-029 — Activity tracking and idle clock-out (Dee, 2026-10-15) · BUILT 2026-10-15, SWITCHED OFF 2026-10-20 (Dee: "remove the autokick")
 
 **Dee:** "A capability that the app can track the mouse click and keyboard
 or screen activity to ensure they are working, especially for work
@@ -1506,6 +1506,16 @@ and a privacy decision for Dee to make in writing with the team.
 2. *Activity level reporting.* A per-person "active minutes in FullSuite"
    figure beside time logged, from the same heartbeat — not keystroke
    content, not screenshots. Shown to the person and their lead.
+
+**Switched off 2026-10-20.** In three days it stopped nine timers (Kaori 5,
+Danicko 2, Daniel 2); Danicko reported "it clocks out by itself even with
+activity." The team works most of the day in DisputeFox and GHL with
+FullSuite in a background tab, where the heartbeat is not sent — exactly
+the case the design called "a sleeping screen". `idle_clock_out_minutes` is
+null for BES; the heartbeat still runs and still stamps `last_activity_at`,
+so the evidence is there if Dee ever wants an idle rule again, with a window
+that fits how the team actually works (hours, not minutes). The nine
+truncated entries stand as recorded; the agents can request adjustments.
 
 **Step 1 built 2026-10-15 (`20261015014000`).** `agencies.idle_clock_out_minutes`
 (BES: 15); `time_entries.last_activity_at`, `auto_stop_reason` (cap | idle);

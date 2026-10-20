@@ -354,17 +354,23 @@ export async function fetchTeamEod(agencyId: string, workDate: string): Promise<
  */
 /** One submission, reduced to what compliance counting needs. */
 /** The agency's EOD cutoff: the clock an unsubmitted day is judged against. */
-export interface EodCutoff { cutoffLocal: string | null; timezone: string | null; autoSubmit: boolean }
+export interface EodCutoff {
+  cutoffLocal: string | null; timezone: string | null; autoSubmit: boolean;
+  /** Hours after which a timer is stopped automatically; null means no limit (Dee, 2026-10-20). */
+  timerCapHours: number | null;
+}
 
 export async function fetchEodCutoff(agencyId: string): Promise<EodCutoff> {
   const sb = requireSupabase();
   const { data, error } = await sb.from("agencies")
-    .select("eod_cutoff_local, eod_timezone, eod_auto_submit").eq("id", agencyId).maybeSingle();
+    .select("eod_cutoff_local, eod_timezone, eod_auto_submit, timer_cap_hours").eq("id", agencyId).maybeSingle();
   if (error) throw error;
   return {
     cutoffLocal: (data?.eod_cutoff_local as string | null) ?? null,
     timezone: (data?.eod_timezone as string | null) ?? null,
     autoSubmit: data?.eod_auto_submit === true,
+    timerCapHours: typeof (data as { timer_cap_hours?: number | null } | null)?.timer_cap_hours === "number"
+      ? (data as { timer_cap_hours: number }).timer_cap_hours : null,
   };
 }
 

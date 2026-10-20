@@ -28,10 +28,10 @@ export interface TimeEntry {
   endedAt?: string;
   /** Minutes, or undefined while the clock is still running. */
   durationMinutes?: number;
-  /** The system ended it at the 10-hour cap (0236) — the agent forgot. */
+  /** The system ended it: at the agency's cap, after idle time, or at the end of an earlier day. */
   autoStopped: boolean;
-  /** Why the system stopped it: "cap" (10 hours) or "idle" (no activity). Null when a person did. */
-  autoStopReason: "cap" | "idle" | null;
+  /** Why the system stopped it: the agency's cap, idle time, or the end of an earlier day. Null when a person did. */
+  autoStopReason: "cap" | "idle" | "day_end" | null;
   /** 'work' counts toward production and pay; 'break'/'lunch' are the day's rest. */
   kind: "work" | "break" | "lunch";
 }
@@ -48,8 +48,10 @@ const mapRow = (r: TimeEntryRow): TimeEntry => ({
   endedAt: r.ended_at ?? undefined,
   durationMinutes: r.duration_minutes ?? undefined,
   autoStopped: Boolean(r.auto_stopped),
-  autoStopReason: (r as { auto_stop_reason?: string | null }).auto_stop_reason === "idle" ? "idle"
-    : r.auto_stopped ? "cap" : null,
+  autoStopReason: (() => {
+    const reason = (r as { auto_stop_reason?: string | null }).auto_stop_reason;
+    return reason === "idle" || reason === "day_end" ? reason : r.auto_stopped ? "cap" : null;
+  })(),
   kind: ((r as { kind?: string }).kind ?? "work") as TimeEntry["kind"],
 });
 

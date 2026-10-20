@@ -366,6 +366,21 @@ could make on its own; all three were hers, and she answered them directly.
   reds are the two regressions above, the scoped FundingOps-production
   probe, and statement timeouts. Re-run the full gate after hours only.**
 
+- **No time limit on a timer and no automatic kick (Dee, 2026-10-20;
+  Danicko: "it clocks out by itself even with activity").** DEPLOYED
+  2026-10-20. Idle clock-out OFF live at 10:58 ET (it had stopped nine
+  timers in three days: Kaori 5, Danicko 2, Daniel 2 — the team works in
+  DisputeFox and GHL with FullSuite in a background tab). The 10-hour cap is
+  now `agencies.timer_cap_hours`, null for BES: a timer is never stopped on
+  its own day, clock-out records the real time, the stale-timer sweep skips
+  BES. The one rule kept: a timer still open from an EARLIER day is closed
+  at 23:59:59 Eastern of that day when the person next clocks in, labelled
+  "closed at the end of that day", agent and lead told — a timer cannot
+  span days and must not block tomorrow's clock-in. Proven live in
+  rolled-back transactions. **The nine idle-stopped entries are short by the
+  time worked after each stop; those agents should request adjustments
+  for 10-16, 10-19 and 10-20, or Dee tells me the real clock-out times.**
+
 - **CreditOps · a partner workspace shows partner information only (Dee,
   2026-10-16: "remove this on just the partners workspace … no overall
   reporting").** DEPLOYED 2026-10-16. The coverage strip (Active work,

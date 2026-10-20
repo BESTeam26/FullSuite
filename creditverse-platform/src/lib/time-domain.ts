@@ -269,9 +269,13 @@ export function runningHours(entry: TimeEntry, now: Date = new Date()): number {
   return entryMinutes(entry, now) / 60;
 }
 
-export function isStaleTimer(entry: TimeEntry | null | undefined, now: Date = new Date()): boolean {
-  if (!entry) return false;
-  return runningHours(entry, now) >= STALE_TIMER_HOURS;
+/**
+ * `capHours` is the agency's own limit; null means none (Dee, 2026-10-20:
+ * "remove the time limit"), and then no timer is ever stale.
+ */
+export function isStaleTimer(entry: TimeEntry | null | undefined, now: Date = new Date(), capHours: number | null = STALE_TIMER_HOURS): boolean {
+  if (!entry || capHours === null) return false;
+  return runningHours(entry, now) >= capHours;
 }
 
 /** "16 hours" / "1 hour 30 minutes" — for telling someone what they left on. */

@@ -195,6 +195,7 @@ export type Database = {
           name: string
           push_public_key: string | null
           slug: string
+          timer_cap_hours: number | null
           updated_at: string
         }
         Insert: {
@@ -208,6 +209,7 @@ export type Database = {
           name: string
           push_public_key?: string | null
           slug: string
+          timer_cap_hours?: number | null
           updated_at?: string
         }
         Update: {
@@ -221,6 +223,7 @@ export type Database = {
           name?: string
           push_public_key?: string | null
           slug?: string
+          timer_cap_hours?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -22194,7 +22197,7 @@ export type Database = {
       }
       time_heartbeat: { Args: never; Returns: boolean }
       time_wide_agency_ids: { Args: never; Returns: string[] }
-      timer_cap: { Args: never; Returns: string }
+      timer_cap: { Args: { p_agency: string }; Returns: string }
       to_service: {
         Args: { p: string }
         Returns: Database["public"]["Enums"]["fulfillment_service"]
