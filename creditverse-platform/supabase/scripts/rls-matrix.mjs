@@ -7078,8 +7078,11 @@ if (runs(70)) {
         insert into public.payroll_cutoffs (agency_id, period_start, period_end) values ('${AG70}', current_date + 100, current_date + 113);
         select public.generate_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
         select public.release_payroll((select id from public.payroll_cutoffs where period_start = current_date + 100));
-        select ((select count(*) from public.agency_expenses where category = 'payroll')
-              + (select count(*) from public.payroll_cutoffs where status = 'released' and expense_id is not null))::int as rows`), 2],
+        /* The probe's OWN cutoff and its expense: real payroll has been released
+           since 2026-10-16, so an unscoped count moved to 4. */
+        select ((select count(*) from public.agency_expenses e where e.category = 'payroll'
+                   and e.id = (select expense_id from public.payroll_cutoffs where period_start = current_date + 100))
+              + (select count(*) from public.payroll_cutoffs where period_start = current_date + 100 and status = 'released' and expense_id is not null))::int as rows`), 2],
 
     ["…and a released cutoff refuses regeneration",
       () => p70(PAY70, `select public.set_payroll_settings(false, 15, 25, 10, 5, 'America/New_York', 'USD');
@@ -7312,7 +7315,10 @@ if (runs(70)) {
         insert into public.time_entries (agency_id, employee_id, division_id, work_date, started_at, kind)
           values ('${AG70}', '${AGENT70}', 'creditops', (now() at time zone 'America/New_York')::date, now() - interval '3 hours', 'work');
         update public.agencies set idle_clock_out_minutes = 15 where id = '${AG70}';
-        select public.auto_stop_idle_timers() as rows`), 0],
+        select public.auto_stop_idle_timers();
+        /* The fixture's OWN timer: the sweep may legitimately stop real
+           people's silent timers inside this rolled-back transaction. */
+        select count(*)::int as rows from public.time_entries where employee_id = '${AGENT70}' and auto_stop_reason = 'idle'`), 0],
     ["…and the idle sweep is cron's, not a signed-in user's",
       () => p70(ADM70, `select public.auto_stop_idle_timers() as rows`), "ERR 42501"],
     ["the rebuild and the mail queue are cron's, not a signed-in user's",
