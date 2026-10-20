@@ -1534,3 +1534,18 @@ logged) not built.
 **Why it was first deferred.** Feature expansion outside the stabilization pass (rule
 20); step 1 needs Dee's idle threshold and a decision on whether idle time is
 unpaid; step 2 is a workforce-policy decision.
+
+## D-030 — Screenshots while clocked in (Dee asked 2026-10-20) · NOT NOW, by Dee's decision
+
+Dee asked whether the app could screenshot the active screen or both
+screens while people work. Answer given: a browser can capture only with
+the person's consent each clock-in (they pick a screen; a "sharing"
+indicator shows; it stops when the tab closes) — a few days of work, about
+1 GB a month of images at one frame per 10 minutes for four people, and a
+written monitoring policy under the Data Privacy Act. Silent, always-on
+capture needs an installed desktop agent or a third-party tool.
+
+**Dee, 2026-10-20: "Just need the timer for now, no kick out. Just let them
+do the work, and track hours."** That is the live state: no cap, no idle
+stop, clock in and clock out record the real time, hours feed payroll. If
+this is wanted later, the consented version is the recommendation.
