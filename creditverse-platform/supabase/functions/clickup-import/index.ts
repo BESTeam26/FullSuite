@@ -306,7 +306,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { error: "POST only" });
 
   const auth = req.headers.get("authorization") ?? "";
-  if (!auth.startsWith("Bearer ")) return json(401, { error: "Sign in first" });
+  /* The dispatcher carries no user: it proves itself with the Vault's shared
+     secret further down, so only a caller offering NEITHER is turned away. */
+  const offeredSecret = req.headers.get("x-dispatch-secret")?.trim() ?? "";
+  if (!auth.startsWith("Bearer ") && !offeredSecret) return json(401, { error: "Sign in first" });
 
   const url = Deno.env.get("SUPABASE_URL");
   const anon = Deno.env.get("SUPABASE_ANON_KEY");
@@ -374,7 +377,6 @@ Deno.serve(async (req) => {
   /* The dispatcher (clickup_sync_dispatch, pg_cron) carries no user: it
      proves itself with the shared secret, compared in constant time, and
      runs as the service — the same path the owner's migration tooling took. */
-  const offeredSecret = req.headers.get("x-dispatch-secret")?.trim() ?? "";
   /* The secret's one home is the Vault (20261023002000); only the service
      key can ask for it, and only when a caller actually offered one. */
   const dispatchSecret = offeredSecret
