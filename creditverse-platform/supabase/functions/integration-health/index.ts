@@ -71,6 +71,30 @@ async function checkAnthropic(): Promise<Check> {
   }
 }
 
+/**
+ * ClickUp sync (Dee, 2026-10-23): not a key test but a clock test — is the
+ * sync running, how far behind is it, did a list fail. Read from
+ * clickup_sync_state with the service key; nothing from ClickUp itself.
+ */
+async function checkClickUp(url: string, serviceKey: string): Promise<Check> {
+  const base = { provider: "ClickUp sync", powers: "Keeps FullSuite in step with ClickUp while the team works there: new clients, status moves, archives" };
+  if (!Deno.env.get("CLICKUP_API_TOKEN")?.trim()) return { ...base, state: "not_configured", detail: "CLICKUP_API_TOKEN is not set." };
+  const sb = createClient(url, serviceKey);
+  const { data, error } = await sb.from("clickup_sync_state").select("group_id, last_synced_at, last_run_at, last_result, last_error");
+  if (error) return { ...base, state: "unreachable", detail: `Could not read the sync state: ${error.message}` };
+  const rows = (data ?? []) as { last_synced_at: string; last_run_at: string | null; last_result: Record<string, number> | null; last_error: string | null }[];
+  if (rows.length === 0) return { ...base, state: "not_configured", detail: "No linked partner lists yet; the first tick creates them." };
+  const failed = rows.filter((r) => r.last_error);
+  const ran = rows.filter((r) => r.last_run_at);
+  const oldest = rows.map((r) => Date.parse(r.last_synced_at)).sort((a, b) => a - b)[0];
+  const behindMin = Math.max(0, Math.round((Date.now() - oldest) / 60_000));
+  const backlog = rows.reduce((n, r) => n + Number(r.last_result?.remaining ?? 0), 0);
+  const when = ran.length ? new Date(Math.max(...ran.map((r) => Date.parse(r.last_run_at!)))).toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }) : "never";
+  if (failed.length) return { ...base, state: "rejected", detail: `${failed.length} of ${rows.length} lists failed on their last run: ${failed[0].last_error}. Last run ${when} ET.` };
+  if (!ran.length) return { ...base, state: "unreachable", detail: `${rows.length} lists linked; the sync has not run yet.` };
+  return { ...base, state: "working", detail: `${rows.length} lists; every five minutes. Last run ${when} ET; the longest-unchecked list is ${behindMin} minutes behind${backlog ? `; ${backlog} changed cards still queued` : ""}.` };
+}
+
 async function checkResend(): Promise<Check> {
   const base = { provider: "Resend", powers: "Activation and welcome email, and anything else the app sends itself" };
   const key = Deno.env.get("MAIL_PROVIDER_API_KEY")?.trim();
@@ -183,7 +207,8 @@ Deno.serve(async (req) => {
 
   const url = Deno.env.get("SUPABASE_URL");
   const anon = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!url || !anon) return json(500, { error: "Not configured" });
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !anon || !serviceKey) return json(500, { error: "Not configured" });
 
   const authHeader = req.headers.get("authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) return json(401, { error: "Sign in first" });
@@ -194,6 +219,6 @@ Deno.serve(async (req) => {
 
   /* All four in parallel: they are independent and one slow provider should
      not decide how long the screen takes (rule 14). */
-  const checks = await Promise.all([checkAnthropic(), checkResend(), checkLob(), checkAuthorizeNet()]);
+  const checks = await Promise.all([checkAnthropic(), checkResend(), checkLob(), checkAuthorizeNet(), checkClickUp(url, serviceKey)]);
   return json(200, { checkedAt: new Date().toISOString(), checks });
 });

@@ -366,6 +366,27 @@ could make on its own; all three were hers, and she answered them directly.
   reds are the two regressions above, the scoped FundingOps-production
   probe, and statement timeouts. Re-run the full gate after hours only.**
 
+- **ClickUp keeps FullSuite in step while the team works there (Dee,
+  2026-10-23: "when a client is added, moved or archived, everything").**
+  BUILT 2026-10-23; database side live (`20261023001000`, `20261023002000`:
+  `clickup_sync_state`, `clickup_sync_dispatch()` every five minutes, five
+  lists per tick, the dispatcher secret in the Vault). **Edge Functions
+  `clickup-import` (sync mode) and `integration-health` (ClickUp sync card)
+  AWAIT DEE'S DEPLOY** — the harness refuses function deploys from Claude.
+  Until deployed, the dispatcher's calls are refused by the old function and
+  nothing changes. How it works: each tick sends the five longest-unchecked
+  partner lists to the existing importer with `since` = their watermark;
+  the importer reads only cards ClickUp says changed after it (new, moved,
+  edited, archived), oldest first, six per run, through the same
+  `clickup_import_client` rules (status guard, matching, vault), and moves
+  the watermark. Every list is checked within about twenty minutes. The
+  watermark starts at 2026-09-29 (the last import), so the first hours drain
+  three weeks of changes. **A card DELETED in ClickUp (not archived) cannot
+  be seen; archive instead.** Settings › Integrations shows "ClickUp sync":
+  lists, last run, how far behind, queued cards, any failed list.
+  Verification after deploy: `clickup_sync_state.last_result` fills in and
+  the card reads Working.
+
 - **Payroll, simply (Dee, 2026-10-20: "too chaotic … Agent Name · Running
   Hours · Rate · Generate Payslip, on the admin view").** DEPLOYED
   2026-10-20. People › Payroll and Finance › Payroll now open on one table

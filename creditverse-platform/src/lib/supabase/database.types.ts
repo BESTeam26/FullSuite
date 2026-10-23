@@ -2266,6 +2266,61 @@ export type Database = {
           },
         ]
       }
+      clickup_sync_state: {
+        Row: {
+          agency_id: string
+          group_id: string
+          last_error: string | null
+          last_result: Json | null
+          last_run_at: string | null
+          last_synced_at: string
+          list_id: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          group_id: string
+          last_error?: string | null
+          last_result?: Json | null
+          last_run_at?: string | null
+          last_synced_at?: string
+          list_id: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          group_id?: string
+          last_error?: string | null
+          last_result?: Json | null
+          last_run_at?: string | null
+          last_synced_at?: string
+          list_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clickup_sync_state_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clickup_sync_state_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "marketing_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clickup_sync_state_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "outsourcing_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_address_history: {
         Row: {
           address_line1: string | null
@@ -18989,6 +19044,8 @@ export type Database = {
         }
         Returns: Json
       }
+      clickup_sync_dispatch: { Args: never; Returns: number }
+      clickup_sync_secret: { Args: never; Returns: string }
       clickup_withdraw_review_tag: { Args: { p_tag: string }; Returns: number }
       client_address_record: {
         Args: {

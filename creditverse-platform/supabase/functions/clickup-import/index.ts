@@ -345,11 +345,17 @@ Deno.serve(async (req) => {
    * With the crosswalk intact the matcher finds him by task id and UPDATES,
    * so the retry corrects the record instead of duplicating the person.
    */
-  const { listId, viewId, groupId, dryRun, resume, max, offset, taskIds, roundScan } = body as {
+  const { listId, viewId, groupId, dryRun, resume, max, offset, taskIds, roundScan, sync, since } = body as {
     listId?: string; viewId?: string; groupId?: string; dryRun?: boolean;
     resume?: boolean; max?: number; offset?: number; taskIds?: string[];
     roundScan?: boolean;
+    /* `sync` (Dee, 2026-10-23): the five-minute clock. Only cards ClickUp
+       says changed after `since` are read, oldest change first, at most
+       `max` of them; the watermark in clickup_sync_state moves to the last
+       card processed, so a backlog drains across runs and nothing is skipped. */
+    sync?: boolean; since?: string;
   };
+  const runStartedAt = new Date();
   /* `preserveDescription` resolves its client through the crosswalk, never
      from a caller-supplied group, so it needs neither a group nor a list. */
   const preserving = !!(body as { preserveDescription?: boolean }).preserveDescription
@@ -365,7 +371,19 @@ Deno.serve(async (req) => {
      A service-role caller — the owner's own migration tooling — goes through
      the same function with the same code path; it gains nothing it did not
      already have, since that key bypasses row-level security outright. */
-  const isService = auth.slice(7) === service;
+  /* The dispatcher (clickup_sync_dispatch, pg_cron) carries no user: it
+     proves itself with the shared secret, compared in constant time, and
+     runs as the service — the same path the owner's migration tooling took. */
+  const offeredSecret = req.headers.get("x-dispatch-secret")?.trim() ?? "";
+  /* The secret's one home is the Vault (20261023002000); only the service
+     key can ask for it, and only when a caller actually offered one. */
+  const dispatchSecret = offeredSecret
+    ? String((await createClient(url, service).rpc("clickup_sync_secret")).data ?? "").trim()
+    : "";
+  const viaDispatch = !!dispatchSecret && offeredSecret.length === dispatchSecret.length
+    && [...offeredSecret].every((ch, i) => ch === dispatchSecret[i]);
+  const isService = viaDispatch || auth.slice(7) === service;
+  if (sync && !viaDispatch && !isService) return json(401, { error: "sync is the dispatcher's" });
   const asUser = isService
     ? createClient(url, service)
     : createClient(url, anon, { global: { headers: { Authorization: auth } } });
@@ -692,6 +710,29 @@ Deno.serve(async (req) => {
      because they are different facts that happen to land on the same column. */
   const clickupArchived = new Set<string>();
 
+  /* ── SYNC BOOKKEEPING (Dee, 2026-10-23) ─────────────────────────────────
+     The watermark moves to the last card processed when some were left for
+     the next run, and to the run's start when the list was fully caught up;
+     counts and any error are kept beside it for the Integrations card. */
+  let lastProcessedUpdated: string | undefined;
+  const recordSync = async (errorText: string | null) => {
+    if (!sync || !groupId) return;
+    const caughtUp = summary.remaining === 0;
+    const watermark = errorText ? null
+      : caughtUp ? runStartedAt.toISOString()
+      : lastProcessedUpdated ? new Date(Number(lastProcessedUpdated)).toISOString() : null;
+    const row: Record<string, unknown> = {
+      last_run_at: new Date().toISOString(), last_error: errorText,
+      last_result: {
+        found: summary.found, matched: summary.matched, created: summary.created,
+        remaining: summary.remaining, notImported: summary.notImported,
+        fromClickUpArchive: (summary as unknown as Record<string, unknown>).fromClickUpArchive ?? 0,
+      },
+      updated_at: new Date().toISOString(),
+    };
+    if (watermark) row.last_synced_at = watermark;
+    await createClient(url, service).from("clickup_sync_state").update(row).eq("group_id", groupId);
+  };
   try {
     /* Resolved first, so everything below deals in a list id only. */
     let resolvedList = listId ?? "";
@@ -713,13 +754,15 @@ Deno.serve(async (req) => {
        Bounded at 50 pages: 5,000 cards is far beyond any partner here, and a
        loop that trusts an API to eventually say "last page" is a loop that
        can run forever. */
-    type Brief = { id: string; name: string; status?: { status?: string } };
+    type Brief = { id: string; name: string; status?: { status?: string }; date_updated?: string };
+    const sinceMs = since ? Date.parse(since) : NaN;
+    const sinceQuery = Number.isFinite(sinceMs) ? `&date_updated_gt=${sinceMs}&order_by=updated&reverse=false` : "";
 
     const walk = async (archivedPass: boolean): Promise<Brief[]> => {
       const out: Brief[] = [];
       for (let page = 0; page < 50; page++) {
         const chunk = await cu<{ tasks: Brief[]; last_page?: boolean }>(
-          `/list/${resolvedList}/task?include_closed=true&subtasks=true` +
+          `/list/${resolvedList}/task?include_closed=true&subtasks=true${sinceQuery}` +
           `${archivedPass ? "&archived=true" : ""}&page=${page}`);
         out.push(...(chunk.tasks ?? []));
         if (chunk.last_page || (chunk.tasks ?? []).length === 0) break;
@@ -771,6 +814,8 @@ Deno.serve(async (req) => {
     const archivedOnly = archivedTasks.filter((t) => !liveIds.has(t.id));
     for (const t of archivedOnly) clickupArchived.add(t.id);
     const tasks: Brief[] = [...liveTasks, ...archivedOnly];
+    /* Sync reads oldest change first so the watermark can move safely. */
+    if (sync) tasks.sort((a, b) => Number(a.date_updated ?? 0) - Number(b.date_updated ?? 0));
     (summary as unknown as Record<string, unknown>).fromClickUpArchive = archivedOnly.length;
     const list = {
       tasks: taskIds?.length
@@ -838,6 +883,7 @@ Deno.serve(async (req) => {
 
       if (resume && done.has(brief.id)) { summary.alreadyDone++; continue; }
       if (max && processed >= max) { summary.remaining++; continue; }
+      lastProcessedUpdated = brief.date_updated ?? lastProcessedUpdated;
       processed++;
 
       const task = await cu<Record<string, unknown>>(
@@ -1157,8 +1203,9 @@ Deno.serve(async (req) => {
         `If it holds details the live card does not, they did not come across.`);
     }
   } catch (e) {
+    await recordSync((e as Error).message).catch(() => {});
     return json(502, { error: (e as Error).message, summary });
   }
-
+  await recordSync(null).catch(() => {});
   return json(200, summary);
 });
