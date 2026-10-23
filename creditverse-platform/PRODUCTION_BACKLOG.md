@@ -368,13 +368,12 @@ could make on its own; all three were hers, and she answered them directly.
 
 - **ClickUp keeps FullSuite in step while the team works there (Dee,
   2026-10-23: "when a client is added, moved or archived, everything").**
-  BUILT 2026-10-23; database side live (`20261023001000`, `20261023002000`:
-  `clickup_sync_state`, `clickup_sync_dispatch()` every five minutes, five
-  lists per tick, the dispatcher secret in the Vault). **Edge Functions
-  `clickup-import` (sync mode) and `integration-health` (ClickUp sync card)
-  AWAIT DEE'S DEPLOY** — the harness refuses function deploys from Claude.
-  Until deployed, the dispatcher's calls are refused by the old function and
-  nothing changes. How it works: each tick sends the five longest-unchecked
+  DEPLOYED 2026-10-23 (`20261023001000`, `20261023002000`, both Edge
+  Functions). LIVE VERIFIED the same hour: ten lists reported in the first
+  twenty minutes, no errors, 33 status moves applied from ClickUp, 0 new
+  clients so far, watermarks advancing; Vanquish Ventures had 245 changed
+  cards queued and drains at six per run (every ~20 minutes), so the
+  three-week backlog clears overnight. How it works: each tick sends the five longest-unchecked
   partner lists to the existing importer with `since` = their watermark;
   the importer reads only cards ClickUp says changed after it (new, moved,
   edited, archived), oldest first, six per run, through the same
